@@ -105,7 +105,7 @@ int main(int argc, char **argv)
   propulsion_write(3,1000);
   blink_once();
 
-  while (1)
+  for(int i=0;i<100;i++)
   {
     // blink_once();
     unsigned int rec0 = actuator_read(0);

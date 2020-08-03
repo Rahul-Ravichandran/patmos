@@ -10,8 +10,8 @@
 #include <math.h>
 #include <machine/rtc.h>
 
-#define battery_voltage_available 0
-//channel 1- roll
+#define battery_voltage_available
+ //channel 1- roll
 // channel 2 - pitch
 // channel 3- throttle
 // channel 4- yaw
@@ -439,7 +439,7 @@ int main(int argc, char **argv)
   // intr_enable();
 
   // getting receiver information
-  intr_handler();
+  // intr_handler();
 
 
   //Wait until the receiver is active and the throtle is set to the lower position.
@@ -484,7 +484,7 @@ int main(int argc, char **argv)
   {
 
     // getting receiver information
-    intr_handler();
+    // intr_handler();
 
     //65.5 = 1 deg/sec (check the datasheet of the MPU-6050 for more information).
     gyro_roll_input = (gyro_roll_input * 0.7) + ((gyro_roll / 65.5) * 0.3);   //Gyro pid input is deg/sec.
@@ -533,7 +533,7 @@ int main(int argc, char **argv)
     }
 
     // getting receiver information
-    intr_handler();
+    // intr_handler();
 
 
     //For starting the motors: throttle low and yaw left (step 1).
@@ -590,7 +590,7 @@ int main(int argc, char **argv)
     calculate_pid();                                                            //PID inputs are known. So we can calculate the pid output.
 
     // getting receiver information
-    intr_handler();
+    // intr_handler();
 
 
     //The battery voltage is needed for compensation.
@@ -644,7 +644,7 @@ int main(int argc, char **argv)
     }
 
     // getting receiver information
-    intr_handler();
+    // intr_handler();
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     //Creating the pulses for the ESC's is explained in this video:

@@ -242,7 +242,7 @@ int main(int argc, char **argv)
   // for (int j=0;j<3000;j++)
   while(1)
   {
-    while(loop_timer + 4000 > get_cpu_usecs());                                                  //Start the pulse after 4000 micro seconds.
+    while(loop_timer + 8000 > get_cpu_usecs());                                                  //Start the pulse after 4000 micro seconds.
     loop_timer = get_cpu_usecs();                                                                //Reset the zero timer.
 
     // printf("initial loop_timer:  %d\n", loop_timer);
@@ -269,11 +269,11 @@ int main(int argc, char **argv)
         gyro_signalen();
 
 
-        angle_pitch += gyro_pitch * 0.0000611;                                           //Calculate the traveled pitch angle and add this to the angle_pitch variable.
-        angle_roll += gyro_roll * 0.0000611;                                             //Calculate the traveled roll angle and add this to the angle_roll variable.
+        angle_pitch += gyro_pitch * 0.0000611*2;                                           //Calculate the traveled pitch angle and add this to the angle_pitch variable.
+        angle_roll += gyro_roll * 0.0000611*2;                                             //Calculate the traveled roll angle and add this to the angle_roll variable.
 
-        angle_pitch -= angle_roll * sin(gyro_yaw * 0.000001066);                         //If the IMU has yawed transfer the roll angle to the pitch angel.
-        angle_roll += angle_pitch * sin(gyro_yaw * 0.000001066);                         //If the IMU has yawed transfer the pitch angle to the roll angel.
+        angle_pitch -= angle_roll * sin(gyro_yaw * 0.000001066*2);                         //If the IMU has yawed transfer the roll angle to the pitch angel.
+        angle_roll += angle_pitch * sin(gyro_yaw * 0.000001066*2);                         //If the IMU has yawed transfer the pitch angle to the roll angel.
 
         //Accelerometer angle calculations
         acc_total_vector = sqrt((acc_x*acc_x)+(acc_y*acc_y)+(acc_z*acc_z));           //Calculate the total accelerometer vector.

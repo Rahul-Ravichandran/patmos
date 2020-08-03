@@ -6,7 +6,7 @@
 
   <ExtMem size="500k" DevTypeRef="OCRam" />
   
-
+  
   <IOs>
   <IO DevTypeRef="Uart" offset="6"/>
   <IO DevTypeRef="Leds" offset="9"/>
