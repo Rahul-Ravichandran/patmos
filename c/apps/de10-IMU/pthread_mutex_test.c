@@ -9,10 +9,37 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <machine/patmos.h>
+#include <machine/rtc.h>
 
 // Uncomment the line below to see the test fail
 // when not using a mutex and cpucnt > 1
 //#define WITHOUT_MUTEX 1
+
+#define MOTOR ( ( volatile _IODEV unsigned * )  PATMOS_IO_ACT+0x10 )
+#define m1 0
+#define m2 1
+#define m3 2
+#define m4 3
+//Receiver controller
+#define RECEIVER ( ( volatile _IODEV unsigned * ) PATMOS_IO_ACT )
+
+const unsigned int CPU_PERIOD = 20; //CPU period in ns.
+
+
+void actuator_write(unsigned int actuator_id, unsigned int data)
+{
+  *(MOTOR + actuator_id) = data;
+}
+
+//Reads from propulsion specified by propulsion ID (0 to 4)
+int receiver_read(unsigned int receiver_id){
+  return *(RECEIVER + receiver_id);
+  unsigned int clock_cycles_counted = *(RECEIVER + receiver_id);
+  unsigned int pulse_high_time = (clock_cycles_counted * CPU_PERIOD) / 1000;
+
+  return pulse_high_time;
+}
+
 
 #ifdef WITHOUT_MUTEX
 _UNCACHED int cnt = 0;
@@ -43,6 +70,11 @@ void * work(void * arg) {
 }
 
 int main() {
+
+  actuator_write(m1, 1000);                                               //give motors 1000us pulse.
+  actuator_write(m2, 1000);
+  actuator_write(m3, 1000);
+  actuator_write(m4, 1000);
 
   int cpucnt = get_cpucnt();
   

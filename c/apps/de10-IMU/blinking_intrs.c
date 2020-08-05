@@ -171,8 +171,8 @@ int main(void) {
   putc('0', stderr);
 
   // loop forever
-  for(;;) {
-    SLEEP = 0;
+  for(int i=0;i<1000;i++) {
+    printf("%d  %d  %d  %d\n", pwm0 ,pwm1,pwm2,pwm3);
   }
 }
 
@@ -181,12 +181,15 @@ void intr_handler(void) {
   exc_prologue();
 
   // arm timer for next interrupt
-  start_time += PERIOD/2;
+  start_time = 100000;
   arm_usec_timer(start_time);
 
   // generate output
-  LEDS ^= 1;
-  putc('0' + (LEDS & 1), stderr);
+  pwm0 = receiver_read(0);
+  pwm1 = receiver_read(1);
+  pwm2 = receiver_read(2);
+  pwm3 = receiver_read(3);
+  // putc('0' + (LEDS & 1), stderr);
 
   exc_epilogue();
 }

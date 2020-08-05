@@ -5,7 +5,7 @@
   <pipeline dual="false" />
 
   <ExtMem size="500k" DevTypeRef="OCRam" />
-  
+  <cores count="1"/>
   
   <IOs>
   <IO DevTypeRef="Uart" offset="6"/>

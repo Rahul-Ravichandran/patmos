@@ -10,7 +10,7 @@
 #include <math.h>
 #include <machine/rtc.h>
 
-#define battery_voltage_available
+#define battery_voltage_available 0
  //channel 1- roll
 // channel 2 - pitch
 // channel 3- throttle
@@ -285,7 +285,7 @@ int convert_receiver_channel(unsigned int function)
 
   if(function==1)
   {
-    reverse = 1;                      //Reverse channel when most significant bit is set
+    reverse = 0;                      //Reverse channel when most significant bit is set
     channel =2;
   }
   else if(function==2)
@@ -295,7 +295,7 @@ int convert_receiver_channel(unsigned int function)
   }
   else if(function==3)
   {
-    reverse = 1;
+    reverse = 0;
     channel=1;
   }
   else
@@ -439,14 +439,17 @@ int main(int argc, char **argv)
   // intr_enable();
 
   // getting receiver information
-  // intr_handler();
+  intr_handler();
 
 
   //Wait until the receiver is active and the throtle is set to the lower position.
   while(receiver_input_channel_3 < 990 || receiver_input_channel_3 > 1020 || receiver_input_channel_4 < 1400)
   {
+    printf("throttle down\n");
+    intr_handler();
     receiver_input_channel_3 = convert_receiver_channel(3);                 //Convert the actual receiver signals for throttle to the standard 1000 - 2000us
     receiver_input_channel_4 = convert_receiver_channel(4);                 //Convert the actual receiver signals for yaw to the standard 1000 - 2000us
+    printf("receiver_input_channel_3:%d receiver_input_channel_4:%d\n", receiver_input_channel_3,receiver_input_channel_4);
     start ++;                                                               //While waiting increment start whith every loop.
     //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while waiting for the receiver inputs.
 
@@ -480,11 +483,12 @@ int main(int argc, char **argv)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //Main program loop
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  for (int j=0;j<10000;j++)
+  // for (int j=0;j<10000;j++)
+  while(1)
   {
 
     // getting receiver information
-    // intr_handler();
+    intr_handler();
 
     //65.5 = 1 deg/sec (check the datasheet of the MPU-6050 for more information).
     gyro_roll_input = (gyro_roll_input * 0.7) + ((gyro_roll / 65.5) * 0.3);   //Gyro pid input is deg/sec.
@@ -500,12 +504,12 @@ int main(int argc, char **argv)
     
     //Gyro angle calculations
     //0.0000611 = 1 / (250Hz / 65.5)
-    angle_pitch += gyro_pitch * 0.0000611*2;                                    //Calculate the traveled pitch angle and add this to the angle_pitch variable.
-    angle_roll += gyro_roll * 0.0000611*2;                                      //Calculate the traveled roll angle and add this to the angle_roll variable.
+    angle_pitch += gyro_pitch * 0.0000611;                                    //Calculate the traveled pitch angle and add this to the angle_pitch variable.
+    angle_roll += gyro_roll * 0.0000611;                                      //Calculate the traveled roll angle and add this to the angle_roll variable.
 
     //0.000001066 = 0.0000611 * (3.142(PI) / 180degr) The Arduino sin function is in radians
-    angle_pitch -= angle_roll * sin(gyro_yaw * 0.000001066*2);                  //If the IMU has yawed transfer the roll angle to the pitch angel.
-    angle_roll += angle_pitch * sin(gyro_yaw * 0.000001066*2);                  //If the IMU has yawed transfer the pitch angle to the roll angel.
+    angle_pitch -= angle_roll * sin(gyro_yaw * 0.000001066);                  //If the IMU has yawed transfer the roll angle to the pitch angel.
+    angle_roll += angle_pitch * sin(gyro_yaw * 0.000001066);                  //If the IMU has yawed transfer the pitch angle to the roll angel.
 
     //Accelerometer angle calculations
     acc_total_vector = sqrt((acc_x*acc_x)+(acc_y*acc_y)+(acc_z*acc_z));       //Calculate the total accelerometer vector.
@@ -533,13 +537,18 @@ int main(int argc, char **argv)
     }
 
     // getting receiver information
-    // intr_handler();
+    intr_handler();
 
 
     //For starting the motors: throttle low and yaw left (step 1).
-    if(receiver_input_channel_3 < 1050 && receiver_input_channel_4 < 1050)start = 1;
+    if(receiver_input_channel_3 < 1050 && receiver_input_channel_4 < 1050)
+    {
+      start = 1;
+      printf("motors start\n");
+    }
     //When yaw stick is back in the center position start the motors (step 2).
     if(start == 1 && receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1450){
+      // printf("yaw center\n");
       start = 2;
 
       angle_pitch = angle_pitch_acc;                                          //Set the gyro pitch angle equal to the accelerometer pitch angle when the quadcopter is started.
@@ -555,7 +564,11 @@ int main(int argc, char **argv)
       pid_last_yaw_d_error = 0;
     }
     //Stopping the motors: throttle low and yaw right.
-    if(start == 2 && receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1950)start = 0;
+    if(start == 2 && receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1950)
+    {
+      start = 0;
+      // printf("motors stop\n");
+    }
 
     //The PID set point in degrees per second is determined by the roll receiver input.
     //In the case of deviding by 3 the max roll rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
@@ -590,7 +603,7 @@ int main(int argc, char **argv)
     calculate_pid();                                                            //PID inputs are known. So we can calculate the pid output.
 
     // getting receiver information
-    // intr_handler();
+    intr_handler();
 
 
     //The battery voltage is needed for compensation.
@@ -644,7 +657,7 @@ int main(int argc, char **argv)
     }
 
     // getting receiver information
-    // intr_handler();
+    intr_handler();
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     //Creating the pulses for the ESC's is explained in this video:
@@ -658,12 +671,15 @@ int main(int argc, char **argv)
     //the Q&A page: 
     //! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
       
-    if(get_cpu_usecs() - loop_timer > 8050)LED_out(1);                   //Turn on the LED if the loop time exceeds 4050us.
+    if(get_cpu_usecs() - loop_timer > 4050)LED_out(1);                   //Turn on the LED if the loop time exceeds 4050us.
     
     //All the information for controlling the motor's is available.
     //The refresh rate is 250Hz. That means the esc's need there pulse every 4ms.
-    while(get_cpu_usecs() - loop_timer < 8000);                                      //We wait until 4000us are passed.
+    while(get_cpu_usecs() - loop_timer < 4000);                                      //We wait until 4000us are passed.\
+    
     loop_timer = get_cpu_usecs();                                                    //Set the timer for the next loop.
+
+    printf("diff loop_timer:  %ld\n", loop_timer);
 
     //esc pwm write
     actuator_write(m1, esc_1);

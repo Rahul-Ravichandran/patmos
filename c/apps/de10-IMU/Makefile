@@ -1,4 +1,4 @@
-MAIN?=check_gps
+MAIN?=Flight_controller
 #MAIN?=blinking
 
 # This is the trivial Hello World example, distributed over two .c files
@@ -10,4 +10,5 @@ LDFLAGS?= \
 
 all:
 	patmos-clang -I ../.. -O2 $(LDFLAGS) $(MAIN).c -o de10-IMU.elf -lm
+# 	patmos-clang -o  de10-IMU.elf $(MAIN).c -lm 
 
