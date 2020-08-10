@@ -396,14 +396,14 @@ int main(int argc, char **argv)
 
   set_gyro_registers();
 
-  for (cal_int = 0; cal_int < 1250 ; cal_int ++)
-  {                                                                         //Wait 5 seconds before continuing.
-    actuator_write(m1, 1000);                                               //give motors 1000us pulse.
-    actuator_write(m2, 1000);
-    actuator_write(m3, 1000);
-    actuator_write(m4, 1000);
+  // for (cal_int = 0; cal_int < 1250 ; cal_int ++)
+  // {                                                                         //Wait 5 seconds before continuing.
+  actuator_write(m1, 1000);                                               //give motors 1000us pulse.
+  actuator_write(m2, 1000);
+  actuator_write(m3, 1000);
+  actuator_write(m4, 1000);
     // micros(3000);  
-  }
+  // }
 
   //Let's take multiple gyro data samples so we can determine the average gyro offset (calibration).
   for (cal_int = 0; cal_int < 2000 ; cal_int ++){                           //Take 2000 readings for calibration.
@@ -417,13 +417,14 @@ int main(int argc, char **argv)
     actuator_write(m2, 1000);
     actuator_write(m3, 1000);
     actuator_write(m4, 1000);
-    // micros(3000);                                                                 //Wait 3 milliseconds before the next loop.
+    micros(3000);                                                                 //Wait 3 milliseconds before the next loop.
   }
   //Now that we have 2000 measures, we need to devide by 2000 to get the average gyro offset.
   gyro_axis_cal[1] /= 2000;                                                 //Divide the roll total by 2000.
   gyro_axis_cal[2] /= 2000;                                                 //Divide the pitch total by 2000.
   gyro_axis_cal[3] /= 2000;                                                 //Divide the yaw total by 2000.
 
+  printf("gyro callibration done\n");
   //interrpt declaration
   // register exception handler
   // exc_register(14, &intr_handler);
@@ -445,11 +446,11 @@ int main(int argc, char **argv)
   //Wait until the receiver is active and the throtle is set to the lower position.
   while(receiver_input_channel_3 < 990 || receiver_input_channel_3 > 1020 || receiver_input_channel_4 < 1400)
   {
-    printf("throttle down\n");
+    // printf("throttle down\n");
     intr_handler();
     receiver_input_channel_3 = convert_receiver_channel(3);                 //Convert the actual receiver signals for throttle to the standard 1000 - 2000us
     receiver_input_channel_4 = convert_receiver_channel(4);                 //Convert the actual receiver signals for yaw to the standard 1000 - 2000us
-    printf("receiver_input_channel_3:%d receiver_input_channel_4:%d\n", receiver_input_channel_3,receiver_input_channel_4);
+    // printf("receiver_input_channel_3:%d receiver_input_channel_4:%d\n", receiver_input_channel_3,receiver_input_channel_4);
     start ++;                                                               //While waiting increment start whith every loop.
     //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while waiting for the receiver inputs.
 
@@ -463,6 +464,7 @@ int main(int argc, char **argv)
       start = 0;                                                            //Start again at 0.
     }
   }
+  printf("throttle in safe position"); 
   start = 0;                                                                //Set start back to 0.
 
   //Load the battery voltage to the battery_voltage variable.
@@ -522,12 +524,13 @@ int main(int argc, char **argv)
     }
     
     //Place the MPU-6050 spirit level and note the values in the following two lines for calibration.
-    angle_pitch_acc += 5.3;                                                   //Accelerometer calibration value for pitch.
-    angle_roll_acc += 0.11;                                                    //Accelerometer calibration value for roll.
+    angle_pitch_acc += 0.0;                                                   //Accelerometer calibration value for pitch.
+    angle_roll_acc += 0.0;                                                    //Accelerometer calibration value for roll.
     
     angle_pitch = angle_pitch * 0.9996 + angle_pitch_acc * 0.0004;            //Correct the drift of the gyro pitch angle with the accelerometer pitch angle.
     angle_roll = angle_roll * 0.9996 + angle_roll_acc * 0.0004;               //Correct the drift of the gyro roll angle with the accelerometer roll angle.
 
+    printf("angle pitch: %f angle_rolll: %f        ",angle_pitch,angle_roll );
     pitch_level_adjust = angle_pitch * 15;                                    //Calculate the pitch angle correction
     roll_level_adjust = angle_roll * 15;                                      //Calculate the roll angle correction
 
@@ -544,7 +547,7 @@ int main(int argc, char **argv)
     if(receiver_input_channel_3 < 1050 && receiver_input_channel_4 < 1050)
     {
       start = 1;
-      printf("motors start\n");
+      // printf("motors start\n");
     }
     //When yaw stick is back in the center position start the motors (step 2).
     if(start == 1 && receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1450){
@@ -679,8 +682,8 @@ int main(int argc, char **argv)
     
     loop_timer = get_cpu_usecs();                                                    //Set the timer for the next loop.
 
-    printf("diff loop_timer:  %ld\n", loop_timer);
-
+    // printf("diff loop_timer:  %ld\n", loop_timer);
+    printf("esc1:%d esc2:%d esc3:%d esc4:%d\n",esc_1, esc_2, esc_3, esc_4 );
     //esc pwm write
     actuator_write(m1, esc_1);
     actuator_write(m2, esc_2);
