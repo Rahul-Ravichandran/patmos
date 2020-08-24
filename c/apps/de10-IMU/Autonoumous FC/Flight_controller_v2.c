@@ -125,7 +125,7 @@ uint8_t takeoff_detected, manual_altitude_change;
 uint8_t telemetry_send_byte, telemetry_bit_counter, telemetry_loop_counter;
 uint8_t channel_select_counter;
 uint8_t level_calibration_on;
-
+int receiver_input[5];
 uint32_t telemetry_buffer_byte;
 
 int16_t esc_1, esc_2, esc_3, esc_4;

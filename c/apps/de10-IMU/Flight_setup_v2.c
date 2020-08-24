@@ -66,7 +66,7 @@ const unsigned int CPU_PERIOD = 20; //CPU period in ns.
 unsigned int disable_throttle, flip32;
 unsigned int error;
 unsigned int loop_timer;
-float angle_roll_acc, angle_pitch_acc, angle_pitch, angle_roll;
+float angle_roll_acc, angle_pitch_acc, angle_pitch, angle_roll, gyro_yaw;
 float battery_voltage;
 int loop_counter;
 unsigned int data, start, warning;
@@ -192,7 +192,7 @@ void LED_out(int i){
 }
 
 // interrupt handler
-void timer_setup(void) {
+void receiver_get(void) {
   // exc_prologue();
 
   // read the receiver pwm duty cycle
@@ -368,13 +368,13 @@ void read_gyro_values(void) {
 
 void check_battery_voltage(void) {
   loop_counter = 0;                                                                       //Reset the loop counter.
-  battery_voltage = analogRead(4);                                                        //Set battery voltage.
+  battery_voltage = 11.1;                                                        //Set battery voltage.
   while (data != 'q') {                                                                   //Stay in this loop until the data variable data holds a q.
     micros(4000);                                                              //Wait for 4000us to simulate a 250Hz loop.
 
     loop_counter++;
     if (loop_counter == 250) {                                                            //Print the battery voltage every second.
-      printf("Voltage = %fV \n", battery_voltage / 112.81, 1);                                          //Print the avarage battery voltage to the serial monitor.
+      printf("Voltage = %fV \n", battery_voltage / 112.81);                                          //Print the avarage battery voltage to the serial monitor.
       loop_counter = 0;                                                                   //Reset the loop counter.
     }
     //A complimentary filter is used to filter out the voltage spikes caused by the ESC's.
@@ -453,14 +453,13 @@ void check_imu_angles(void) {
     }
 
     //We can't print all the data at once. This takes to long and the angular readings will be off.
-    if (loop_counter == 0)Serial.print("Pitch: ");
-    if (loop_counter == 1)Serial.print(angle_pitch , 1);
-    if (loop_counter == 2)Serial.print(" Roll: ");
-    if (loop_counter == 3)Serial.print(angle_roll , 1);
-    if (loop_counter == 4)Serial.print(" Yaw: ");
-    if (loop_counter == 5)Serial.print(gyro_axis[3] / 65.5 , 0);
-    if (loop_counter == 6)Serial.print(" Temp: ");
-    if (loop_counter == 7)Serial.println(temperature / 340.0 + 35.0 , 1);
+    if(loop_counter == 0)printf("Pitch: ");
+    if(loop_counter == 1)printf("%f",angle_pitch);
+    if(loop_counter == 2)printf(" Roll: ");
+    if(loop_counter == 3)printf("%f",angle_roll);
+    if(loop_counter == 4)printf(" Yaw: ");
+    if(loop_counter == 5)printf("%f",gyro_yaw / 65.5);
+    if(loop_counter == 5)printf("\n");
     loop_counter ++;
     if (loop_counter == 60)loop_counter = 0;
 
@@ -479,18 +478,12 @@ void check_barometer(void) {
       C[start] = i2c_read(MS5611_address, 0xA0 + start*2) << 8 | i2c_read(MS5611_address, 0xA0 + start*2 +1);                    //Start communication with the MPU-6050.
     }
     //Print the 6 calibration values on the screen.
-    Serial.print("C1 = ");
-    Serial.println(C[1]);
-    Serial.print("C2 = ");
-    Serial.println(C[2]);
-    Serial.print("C3 = ");
-    Serial.println(C[3]);
-    Serial.print("C4 = ");
-    Serial.println(C[4]);
-    Serial.print("C5 = ");
-    Serial.println(C[5]);
-    Serial.print("C6 = ");
-    Serial.println(C[6]);
+    printf("C1 = %d\n",C[1]);
+    printf("C2 = %d\n",C[2]);
+    printf("C3 = %d\n",C[3]);
+    printf("C4 = %d\n",C[4]);
+    printf("C5 = %d\n",C[5]);
+    printf("C6 = %d\n",C[6]);
 
     OFF_C2 = C[2] * pow(2, 16);                                   //This value is pre-calculated to offload the main program loop.
     SENS_C1 = C[1] * pow(2, 15);                                  //This value is pre-calculated to offload the main program loop.
@@ -560,7 +553,7 @@ void check_barometer(void) {
     }
     while (loop_timer > get_cpu_usecs());
 
-    receiver_read();
+    receiver_get();
     if(receiver_input[1] < 1050 && receiver_input[4] > 1950 && receiver_input[2] < 1050 && receiver_input[3] > 1950)
     {
       data = 'q';
@@ -574,7 +567,7 @@ void check_barometer(void) {
 
 int main(int argc, char **argv)
 {
-  timer_setup();                                                //Setup the timers for the receiver inputs and ESC's output.
+  receiver_get();                                                //Setup the timers for the receiver inputs and ESC's output.
 
   set_gyro_registers();
 
@@ -641,6 +634,13 @@ int main(int argc, char **argv)
       printf("You can exit by sending a q (quit).\n");
       millis(2500);
       check_barometer();
+    }
+
+    receiver_get();
+    if(receiver_input[1] < 1050 && receiver_input[4] > 1950 && receiver_input[2] < 1050 && receiver_input[3] > 1950)
+    {
+      break;
+      // printf("motors stop\n");
     }
 
     // if (data == 'i') {

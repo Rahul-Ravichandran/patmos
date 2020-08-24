@@ -1,4 +1,4 @@
-MAIN?=Flight_controller
+MAIN?=baro_test
 #MAIN?=blinking
 
 # This is the trivial Hello World example, distributed over two .c files
