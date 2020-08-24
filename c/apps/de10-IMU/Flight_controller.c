@@ -573,6 +573,12 @@ int main(int argc, char **argv)
       // printf("motors stop\n");
     }
 
+    if(receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1950 && receiver_input_channel_1 < 1050 && receiver_input_channel_2 > 1950)
+    {
+      start = -1;
+      // printf("motors stop\n");
+    }
+
     //The PID set point in degrees per second is determined by the roll receiver input.
     //In the case of deviding by 3 the max roll rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
     pid_roll_setpoint = 0;
@@ -689,10 +695,14 @@ int main(int argc, char **argv)
     actuator_write(m2, esc_2);
     actuator_write(m3, esc_3);
     actuator_write(m4, esc_4);
+
+
     
     //There is always 1000us of spare time. So let's do something usefull that is very time consuming.
     //Get the current gyro and receiver data and scale it to degrees per second for the pid calculations.
     gyro_signalen();
+
+    if(start==-1)break;
 
   }
   return 0;
