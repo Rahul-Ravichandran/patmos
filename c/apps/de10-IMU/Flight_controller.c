@@ -65,7 +65,7 @@ const unsigned int CPU_PERIOD = 20; //CPU period in ns.
 
 
 ///////////initialization
-
+float dt =0.02;
 int temperature=0;
 double acc_x=0.0, acc_y=0.0, acc_z=0.0, acc_total_vector=0.0;
 short int acc_axis[4]={0,0,0,0}, gyro_axis[4]={0,0,0,0};
@@ -356,6 +356,14 @@ void gyro_signalen()
   gyro_axis[2] = (GYRO_Y_H<<8|GYRO_Y_L);                   //Read high and low part of the angular data.
   gyro_axis[3] = (GYRO_Z_H<<8|GYRO_Z_L);                   //Read high and low part of the angular data.
 
+  // acc_axis[1] = 0;                    //Add the low and high byte to the acc_x variable.
+  // acc_axis[2] = 0;                  //Add the low and high byte to the acc_y variable.
+  // acc_axis[3] = 0;                    //Add the low and high byte to the acc_z variable.
+  // temperature = 0;                    //Add the low and high byte to the temperature variable.
+  // gyro_axis[1] = 0;                   //Read high and low part of the angular data.
+  // gyro_axis[2] = 0;                   //Read high and low part of the angular data.
+  // gyro_axis[3] = 0;                   //Read high and low part of the angular data.
+
   if(cal_int == 2000)
   {
     gyro_axis[1] -= gyro_axis_cal[1];                            //Only compensate after the calibration.
@@ -385,6 +393,7 @@ void gyro_signalen()
    // printf("GYRO_Z  = 0x%.2X%.2X (%d)\n", GYRO_Z_H, GYRO_Z_L, (short int)((GYRO_Z_H << 8) | GYRO_Z_L));
 }
 
+
 int main(int argc, char **argv)
 {
 
@@ -413,11 +422,12 @@ int main(int argc, char **argv)
     gyro_axis_cal[2] += gyro_axis[2];                                       //Ad pitch value to gyro_pitch_cal.
     gyro_axis_cal[3] += gyro_axis[3];                                       //Ad yaw value to gyro_yaw_cal.
     //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while calibrating the gyro.
-    actuator_write(m1, 1000);                                               //give motors 1000us pulse.
-    actuator_write(m2, 1000);
-    actuator_write(m3, 1000);
-    actuator_write(m4, 1000);
+    // actuator_write(m1, 1000);                                               //give motors 1000us pulse.
+    // actuator_write(m2, 1000);
+    // actuator_write(m3, 1000);
+    // actuator_write(m4, 1000);
     micros(3000);                                                                 //Wait 3 milliseconds before the next loop.
+    LED_out(0);
   }
   //Now that we have 2000 measures, we need to devide by 2000 to get the average gyro offset.
   gyro_axis_cal[1] /= 2000;                                                 //Divide the roll total by 2000.
@@ -489,6 +499,10 @@ int main(int argc, char **argv)
   while(1)
   {
 
+    while(get_cpu_usecs() - loop_timer < 20000);                                                 //Start the pulse after 4000 micro seconds.
+    // dt = get_cpu_usecs() - loop_timer;
+    // printf("dt:%f\n",dt);
+    loop_timer = get_cpu_usecs();  
     // getting receiver information
     intr_handler();
 
@@ -506,31 +520,67 @@ int main(int argc, char **argv)
     
     //Gyro angle calculations
     //0.0000611 = 1 / (250Hz / 65.5)
-    angle_pitch += gyro_pitch * 0.0000611;                                    //Calculate the traveled pitch angle and add this to the angle_pitch variable.
-    angle_roll += gyro_roll * 0.0000611;                                      //Calculate the traveled roll angle and add this to the angle_roll variable.
+    // angle_pitch += gyro_pitch * 0.0000611;                                    //Calculate the traveled pitch angle and add this to the angle_pitch variable.
+    // angle_roll += gyro_roll * 0.0000611;                                      //Calculate the traveled roll angle and add this to the angle_roll variable.
 
-    //0.000001066 = 0.0000611 * (3.142(PI) / 180degr) The Arduino sin function is in radians
-    angle_pitch -= angle_roll * sin(gyro_yaw * 0.000001066);                  //If the IMU has yawed transfer the roll angle to the pitch angel.
-    angle_roll += angle_pitch * sin(gyro_yaw * 0.000001066);                  //If the IMU has yawed transfer the pitch angle to the roll angel.
+    // //0.000001066 = 0.0000611 * (3.142(PI) / 180degr) The Arduino sin function is in radians
+    // angle_pitch -= angle_roll * sin(gyro_yaw * 0.000001066);                  //If the IMU has yawed transfer the roll angle to the pitch angel.
+    // angle_roll += angle_pitch * sin(gyro_yaw * 0.000001066);                  //If the IMU has yawed transfer the pitch angle to the roll angel.
+
+    // //Accelerometer angle calculations
+    // acc_total_vector = sqrt((acc_x*acc_x)+(acc_y*acc_y)+(acc_z*acc_z));       //Calculate the total accelerometer vector.
+    
+    // if(abs(acc_y) < acc_total_vector){                                        //Prevent the asin function to produce a NaN
+    //   angle_pitch_acc = asin(acc_y/acc_total_vector)* 57.296;          //Calculate the pitch angle.
+    // }
+    // if(abs(acc_x) < acc_total_vector){                                        //Prevent the asin function to produce a NaN
+    //   angle_roll_acc = asin(acc_x/acc_total_vector)* -57.296;          //Calculate the roll angle.
+    // }
+    
+    // //Place the MPU-6050 spirit level and note the values in the following two lines for calibration.
+    // angle_pitch_acc += -14.0;                                                   //Accelerometer calibration value for pitch.
+    // angle_roll_acc += 15.0;                                                    //Accelerometer calibration value for roll.
+    
+    // angle_pitch = angle_pitch * 0.9996 + angle_pitch_acc * 0.0004;            //Correct the drift of the gyro pitch angle with the accelerometer pitch angle.
+    // angle_roll = angle_roll * 0.9996 + angle_roll_acc * 0.0004;               //Correct the drift of the gyro roll angle with the accelerometer roll angle.
+
+    // //reset pitch nd roll angles to zero for debugging
+    // angle_pitch =0;
+    // angle_roll=0;
+
+    // printf("angle pitch: %f angle_rolll: %f        ",angle_pitch,angle_roll );
+    // pitch_level_adjust = angle_pitch * 15;                                    //Calculate the pitch angle correction
+    // roll_level_adjust = angle_roll * 15;                                      //Calculate the roll angle correction
+
+    // if(!auto_level){                                                          //If the quadcopter is not in auto-level mode
+    //   pitch_level_adjust = 0;                                                 //Set the pitch angle correction to zero.
+    //   roll_level_adjust = 0;                                                  //Set the roll angle correcion to zero.
+    // }
+
+    angle_pitch += (gyro_pitch / 65.5)*dt;                                           //Calculate the traveled pitch angle and add this to the angle_pitch variable.
+    angle_roll += (gyro_roll / 65.5)*dt;                                             //Calculate the traveled roll angle and add this to the angle_roll variable.
+
+    angle_pitch -= angle_roll * sin(gyro_yaw * (dt/65.5)*(3.142/180));                         //If the IMU has yawed transfer the roll angle to the pitch angel.
+    angle_roll += angle_pitch * sin(gyro_yaw * (dt/65.5)*(3.142/180));                         //If the IMU has yawed transfer the pitch angle to the roll angel.
 
     //Accelerometer angle calculations
-    acc_total_vector = sqrt((acc_x*acc_x)+(acc_y*acc_y)+(acc_z*acc_z));       //Calculate the total accelerometer vector.
-    
+    acc_total_vector = sqrt((acc_x*acc_x)+(acc_y*acc_y)+(acc_z*acc_z));           //Calculate the total accelerometer vector.
+
+
+    //57.296 = 1 / (3.142 / 180) The Arduino asin function is in radians
     if(abs(acc_y) < acc_total_vector){                                        //Prevent the asin function to produce a NaN
       angle_pitch_acc = asin(acc_y/acc_total_vector)* 57.296;          //Calculate the pitch angle.
     }
     if(abs(acc_x) < acc_total_vector){                                        //Prevent the asin function to produce a NaN
       angle_roll_acc = asin(acc_x/acc_total_vector)* -57.296;          //Calculate the roll angle.
     }
-    
-    //Place the MPU-6050 spirit level and note the values in the following two lines for calibration.
-    angle_pitch_acc += -14.0;                                                   //Accelerometer calibration value for pitch.
-    angle_roll_acc += 15.0;                                                    //Accelerometer calibration value for roll.
-    
-    angle_pitch = angle_pitch * 0.9996 + angle_pitch_acc * 0.0004;            //Correct the drift of the gyro pitch angle with the accelerometer pitch angle.
-    angle_roll = angle_roll * 0.9996 + angle_roll_acc * 0.0004;               //Correct the drift of the gyro roll angle with the accelerometer roll angle.
+    angle_pitch_acc -= 8.5;                                                   //Accelerometer calibration value for pitch.
+    angle_roll_acc += 11.5;                                                    //Accelerometer calibration value for roll.
 
     printf("angle pitch: %f angle_rolll: %f        ",angle_pitch,angle_roll );
+    angle_pitch = angle_pitch * 0.98 + angle_pitch_acc * 0.02;                 //Correct the drift of the gyro pitch angle with the accelerometer pitch angle.
+    angle_roll = angle_roll * 0.98 + angle_roll_acc * 0.02;                    //Correct the drift of the gyro roll angle with the accelerometer roll angle.
+
     pitch_level_adjust = angle_pitch * 15;                                    //Calculate the pitch angle correction
     roll_level_adjust = angle_roll * 15;                                      //Calculate the roll angle correction
 
@@ -684,9 +734,9 @@ int main(int argc, char **argv)
     
     //All the information for controlling the motor's is available.
     //The refresh rate is 250Hz. That means the esc's need there pulse every 4ms.
-    while(get_cpu_usecs() - loop_timer < 4000);                                      //We wait until 4000us are passed.\
+    // while(get_cpu_usecs() - loop_timer < 4000);                                      //We wait until 4000us are passed.\
     
-    loop_timer = get_cpu_usecs();                                                    //Set the timer for the next loop.
+    // loop_timer = get_cpu_usecs();                                                    //Set the timer for the next loop.
 
     // printf("diff loop_timer:  %ld\n", loop_timer);
     printf("esc1:%d esc2:%d esc3:%d esc4:%d\n",esc_1, esc_2, esc_3, esc_4 );
