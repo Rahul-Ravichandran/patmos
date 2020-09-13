@@ -11,6 +11,7 @@
 #include <machine/rtc.h>
 
 #define battery_voltage_available 0
+#define GYRO_CALLIB 1
  //channel 1- roll
 // channel 2 - pitch
 // channel 3- throttle
@@ -65,6 +66,8 @@ const unsigned int CPU_PERIOD = 20; //CPU period in ns.
 
 
 ///////////initialization
+int first_time=1, acc_count=0;
+float pitch_offset=0,roll_offset=0;
 float dt =0.02;
 int temperature=0;
 double acc_x=0.0, acc_y=0.0, acc_z=0.0, acc_total_vector=0.0;
@@ -78,19 +81,32 @@ bool first_angle=false;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //PID gain and limit settings
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-float pid_p_gain_roll = 1.3;               //Gain setting for the roll P-controller
-float pid_i_gain_roll = 0.04;              //Gain setting for the roll I-controller
-float pid_d_gain_roll = 18.0;              //Gain setting for the roll D-controller
+// float pid_p_gain_roll = 1.3;               //Gain setting for the roll P-controller
+// float pid_i_gain_roll = 0.04;              //Gain setting for the roll I-controller
+// float pid_d_gain_roll = 18.0;              //Gain setting for the roll D-controller
+// int pid_max_roll = 400;                    //Maximum output of the PID-controller (+/-)
+
+// float pid_p_gain_pitch = 1.3;               //Gain setting for the pitch P-controller.
+// float pid_i_gain_pitch = 0.04;              //Gain setting for the pitch I-controller.
+// float pid_d_gain_pitch = 18.0;              //Gain setting for the pitch D-controller.
+// int pid_max_pitch = 400;                    //Maximum output of the PID-controller (+/-)
+
+// float pid_p_gain_yaw = 4.0;                //Gain setting for the pitch P-controller. //4.0
+// float pid_i_gain_yaw = 0.02;               //Gain setting for the pitch I-controller. //0.02
+// float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller.
+const float pid_p_gain_roll = 0.7;               //Gain setting for the roll P-controller
+const float pid_i_gain_roll = 0.01;              //Gain setting for the roll I-controller
+const float pid_d_gain_roll = 5;              //Gain setting for the roll D-controller
 int pid_max_roll = 400;                    //Maximum output of the PID-controller (+/-)
 
-float pid_p_gain_pitch = 1.3;               //Gain setting for the pitch P-controller.
-float pid_i_gain_pitch = 0.04;              //Gain setting for the pitch I-controller.
-float pid_d_gain_pitch = 18.0;              //Gain setting for the pitch D-controller.
+const float pid_p_gain_pitch = pid_p_gain_roll;               //Gain setting for the pitch P-controller.
+const float pid_i_gain_pitch = pid_i_gain_roll;              //Gain setting for the pitch I-controller.
+const float pid_d_gain_pitch = pid_d_gain_roll;              //Gain setting for the pitch D-controller.
 int pid_max_pitch = 400;                    //Maximum output of the PID-controller (+/-)
 
-float pid_p_gain_yaw = 4.0;                //Gain setting for the pitch P-controller. //4.0
-float pid_i_gain_yaw = 0.02;               //Gain setting for the pitch I-controller. //0.02
-float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller.
+const float pid_p_gain_yaw = 1.5;                //Gain setting for the pitch P-controller. //4.0
+const float pid_i_gain_yaw = 0.01;               //Gain setting for the pitch I-controller. //0.02
+const float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller.
 int pid_max_yaw = 400;                     //Maximum output of the PID-controller (+/-)
 
 bool auto_level = true;                 //Auto level on (true) or off (false)
@@ -240,6 +256,8 @@ void calculate_pid()
 {
   //Roll calculations
   pid_error_temp = gyro_roll_input - pid_roll_setpoint;
+  printf("pid_error_temp_roll:%f  ",pid_error_temp);
+
   pid_i_mem_roll += pid_i_gain_roll * pid_error_temp;
   if(pid_i_mem_roll > pid_max_roll)pid_i_mem_roll = pid_max_roll;
   else if(pid_i_mem_roll < pid_max_roll * -1)pid_i_mem_roll = pid_max_roll * -1;
@@ -252,6 +270,8 @@ void calculate_pid()
 
   //Pitch calculations
   pid_error_temp = gyro_pitch_input - pid_pitch_setpoint;
+  printf("pid_error_temp_pitch:%f  ",pid_error_temp);
+
   pid_i_mem_pitch += pid_i_gain_pitch * pid_error_temp;
   if(pid_i_mem_pitch > pid_max_pitch)pid_i_mem_pitch = pid_max_pitch;
   else if(pid_i_mem_pitch < pid_max_pitch * -1)pid_i_mem_pitch = pid_max_pitch * -1;
@@ -264,6 +284,7 @@ void calculate_pid()
 
   //Yaw calculations
   pid_error_temp = gyro_yaw_input - pid_yaw_setpoint;
+  printf("pid_error_temp_pitch_yaw:%f  ",pid_error_temp);
   pid_i_mem_yaw += pid_i_gain_yaw * pid_error_temp;
   if(pid_i_mem_yaw > pid_max_yaw)pid_i_mem_yaw = pid_max_yaw;
   else if(pid_i_mem_yaw < pid_max_yaw * -1)pid_i_mem_yaw = pid_max_yaw * -1;
@@ -273,6 +294,7 @@ void calculate_pid()
   else if(pid_output_yaw < pid_max_yaw * -1)pid_output_yaw = pid_max_yaw * -1;
 
   pid_last_yaw_d_error = pid_error_temp;
+  printf("pid_output_pitch:%f pid_output_roll:%f pid_output_yaw:%f \n",pid_output_pitch,pid_output_roll,pid_output_yaw);
 }
 
 //This part converts the actual receiver signals to a standardized 1000 – 1500 – 2000 microsecond value.
@@ -415,26 +437,29 @@ int main(int argc, char **argv)
   // }
 
   //Let's take multiple gyro data samples so we can determine the average gyro offset (calibration).
-  for (cal_int = 0; cal_int < 2000 ; cal_int ++){                           //Take 2000 readings for calibration.
-    if(cal_int % 15 == 0)LED_out(1);                //Change the led status to indicate calibration.
-    gyro_signalen();                                                        //Read the gyro output.
-    gyro_axis_cal[1] += gyro_axis[1];                                       //Ad roll value to gyro_roll_cal.
-    gyro_axis_cal[2] += gyro_axis[2];                                       //Ad pitch value to gyro_pitch_cal.
-    gyro_axis_cal[3] += gyro_axis[3];                                       //Ad yaw value to gyro_yaw_cal.
-    //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while calibrating the gyro.
-    // actuator_write(m1, 1000);                                               //give motors 1000us pulse.
-    // actuator_write(m2, 1000);
-    // actuator_write(m3, 1000);
-    // actuator_write(m4, 1000);
-    micros(3000);                                                                 //Wait 3 milliseconds before the next loop.
-    LED_out(0);
-  }
-  //Now that we have 2000 measures, we need to devide by 2000 to get the average gyro offset.
-  gyro_axis_cal[1] /= 2000;                                                 //Divide the roll total by 2000.
-  gyro_axis_cal[2] /= 2000;                                                 //Divide the pitch total by 2000.
-  gyro_axis_cal[3] /= 2000;                                                 //Divide the yaw total by 2000.
+  if(GYRO_CALLIB)
+  {
+    for (cal_int = 0; cal_int < 2000 ; cal_int ++){                           //Take 2000 readings for calibration.
+      if(cal_int % 15 == 0)LED_out(1);                //Change the led status to indicate calibration.
+      gyro_signalen();                                                        //Read the gyro output.
+      gyro_axis_cal[1] += gyro_axis[1];                                       //Ad roll value to gyro_roll_cal.
+      gyro_axis_cal[2] += gyro_axis[2];                                       //Ad pitch value to gyro_pitch_cal.
+      gyro_axis_cal[3] += gyro_axis[3];                                       //Ad yaw value to gyro_yaw_cal.
+      //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while calibrating the gyro.
+      // actuator_write(m1, 1000);                                               //give motors 1000us pulse.
+      // actuator_write(m2, 1000);
+      // actuator_write(m3, 1000);
+      // actuator_write(m4, 1000);
+      micros(3000);                                                                 //Wait 3 milliseconds before the next loop.
+      LED_out(0);
+    }
+    //Now that we have 2000 measures, we need to devide by 2000 to get the average gyro offset.
+    gyro_axis_cal[1] /= 2000;                                                 //Divide the roll total by 2000.
+    gyro_axis_cal[2] /= 2000;                                                 //Divide the pitch total by 2000.
+    gyro_axis_cal[3] /= 2000;                                                 //Divide the yaw total by 2000.
 
-  printf("gyro callibration done\n");
+    printf("gyro callibration done\n");
+  }
   //interrpt declaration
   // register exception handler
   // exc_register(14, &intr_handler);
@@ -574,10 +599,26 @@ int main(int argc, char **argv)
     if(abs(acc_x) < acc_total_vector){                                        //Prevent the asin function to produce a NaN
       angle_roll_acc = asin(acc_x/acc_total_vector)* -57.296;          //Calculate the roll angle.
     }
-    angle_pitch_acc -= 8.5;                                                   //Accelerometer calibration value for pitch.
-    angle_roll_acc += 11.5;                                                    //Accelerometer calibration value for roll.
 
-    printf("angle pitch: %f angle_rolll: %f        ",angle_pitch,angle_roll );
+    if(first_time)
+    {
+      pitch_offset = -angle_pitch_acc;                                                   //Accelerometer calibration value for pitch.
+      roll_offset = -angle_roll_acc;                                                    //Accelerometer calibration value for roll.
+    }
+
+    angle_pitch_acc += pitch_offset;                                                   //Accelerometer calibration value for pitch.
+    angle_roll_acc += roll_offset; 
+
+    if( (int)angle_pitch_acc==0 && (int)angle_roll_acc==0)
+    {
+      acc_count++;
+    }
+    else acc_count=0;
+
+    if(acc_count==20)first_time=0;
+
+    // printf("gyro_pitch_input: %f gyro_roll_input: %f  gyro_yaw_input: %f     ",gyro_pitch_input,gyro_roll_input,gyro_yaw_input );
+    // printf("angle pitch: %f angle_rolll: %f       ",angle_pitch,angle_roll );
     angle_pitch = angle_pitch * 0.98 + angle_pitch_acc * 0.02;                 //Correct the drift of the gyro pitch angle with the accelerometer pitch angle.
     angle_roll = angle_roll * 0.98 + angle_roll_acc * 0.02;                    //Correct the drift of the gyro roll angle with the accelerometer roll angle.
 
@@ -655,8 +696,8 @@ int main(int argc, char **argv)
     pid_yaw_setpoint = 0;
     //We need a little dead band of 16us for better results.
     if(receiver_input_channel_3 > 1050){ //Do not yaw when turning off the motors.
-      if(receiver_input_channel_4 > 1508)pid_yaw_setpoint = (receiver_input_channel_4 - 1508)/3.0;
-      else if(receiver_input_channel_4 < 1492)pid_yaw_setpoint = (receiver_input_channel_4 - 1492)/3.0;
+      if(receiver_input_channel_4 > 1508)pid_yaw_setpoint = (receiver_input_channel_4 - 1508 -30)/3.0;
+      else if(receiver_input_channel_4 < 1492)pid_yaw_setpoint = (receiver_input_channel_4 - 1492 -30)/3.0;
     }
     
     calculate_pid();                                                            //PID inputs are known. So we can calculate the pid output.
@@ -730,7 +771,7 @@ int main(int argc, char **argv)
     //the Q&A page: 
     //! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
       
-    if(get_cpu_usecs() - loop_timer > 4050)LED_out(1);                   //Turn on the LED if the loop time exceeds 4050us.
+    if(get_cpu_usecs() - loop_timer > 20000)LED_out(1);                   //Turn on the LED if the loop time exceeds 4050us.
     
     //All the information for controlling the motor's is available.
     //The refresh rate is 250Hz. That means the esc's need there pulse every 4ms.
@@ -739,7 +780,7 @@ int main(int argc, char **argv)
     // loop_timer = get_cpu_usecs();                                                    //Set the timer for the next loop.
 
     // printf("diff loop_timer:  %ld\n", loop_timer);
-    printf("esc1:%d esc2:%d esc3:%d esc4:%d\n",esc_1, esc_2, esc_3, esc_4 );
+    // printf("esc1:%d esc2:%d esc3:%d esc4:%d\n",esc_1, esc_2, esc_3, esc_4 );
     //esc pwm write
     actuator_write(m1, esc_1);
     actuator_write(m2, esc_2);
