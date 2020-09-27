@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <machine/rtc.h>
-
+#include<string.h>
 #define battery_voltage_available 0
  //channel 1- roll
 // channel 2 - pitch
@@ -89,7 +89,7 @@ double gyro_axis_cal[4]={0.0,0.0,0.0,0.0};
 int gyro_address = MPU6050_I2C_ADDRESS,vibration_counter;
 bool first_angle=false;
 char data='5';
-
+char mode[] ="esc_callibrate";
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //PID gain and limit settings
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -388,51 +388,67 @@ int main(int argc, char **argv)
     actuator_write(m2, esc_2);
     actuator_write(m3, esc_3);
     actuator_write(m4, esc_4);
-    //If motor 1, 2, 3 or 4 is selected by the user.
-    loop_counter ++;                                                                    //Add 1 to the loop_counter variable.
-    if(new_function_request == true && loop_counter == 250){                            //Wait for the throttle to be set to 0.
-      printf("Set throttle to 1000 (low). It's now set to: ");                    //Print message on the serial monitor.
-      printf("%d \n",receiver_input_channel_3);                                         //Print the actual throttle position.
-      loop_counter = 0;                                                                 //Reset the loop_counter variable.
-    }
-    if(new_function_request == false)
-    {                                                  //When the throttle was in the lowest position do this.
-      receiver_input_channel_3 = convert_receiver_channel(3);                           //Convert the actual receiver signals for throttle to the standard 1000 - 2000us.
-      if(data == '1' || data == '5')esc_1 = receiver_input_channel_3;                   //If motor 1 is requested set the pulse for motor 1 equal to the throttle channel.
-      else esc_1 = 1000;                                                                //If motor 1 is not requested set the pulse for the ESC to 1000us (off).
-      if(data == '2' || data == '5')esc_2 = receiver_input_channel_3;                   //If motor 2 is requested set the pulse for motor 1 equal to the throttle channel.
-      else esc_2 = 1000;                                                                //If motor 2 is not requested set the pulse for the ESC to 1000us (off).
-      if(data == '3' || data == '5')esc_3 = receiver_input_channel_3;                   //If motor 3 is requested set the pulse for motor 1 equal to the throttle channel.
-      else esc_3 = 1000;                                                                //If motor 3 is not requested set the pulse for the ESC to 1000us (off).
-      if(data == '4' || data == '5')esc_4 = receiver_input_channel_3;                   //If motor 4 is requested set the pulse for motor 1 equal to the throttle channel.
-      else esc_4 = 1000;                                                                //If motor 4 is not requested set the pulse for the ESC to 1000us (off).
 
+    if(strcmp(mode,"esc_callibrate")==0 && new_function_request == false)
+    {                                       //Only start the calibration mode at first start. 
+      receiver_input_channel_3 = convert_receiver_channel(3);                             //Convert the actual receiver signals for throttle to the standard 1000 - 2000us.
+      esc_1 = receiver_input_channel_3;                                                   //Set the pulse for motor 1 equal to the throttle channel.
+      esc_2 = receiver_input_channel_3;                                                   //Set the pulse for motor 2 equal to the throttle channel.
+      esc_3 = receiver_input_channel_3;                                                   //Set the pulse for motor 3 equal to the throttle channel.
+      esc_4 = receiver_input_channel_3;                                                   //Set the pulse for motor 4 equal to the throttle channel.
       actuator_write(m1, esc_1);
       actuator_write(m2, esc_2);
       actuator_write(m3, esc_3);
-      actuator_write(m4, esc_4);                                                               //Send the ESC control pulses.
-      // printf("actutor write");
-      //For balancing the propellors it's possible to use the accelerometer to measure the vibrations.
-      gyro_signalen();
-      acc_total_vector[0] = sqrt((acc_x*acc_x)+(acc_y*acc_y)+(acc_z*acc_z));          //Calculate the total accelerometer vector.
-
-      acc_av_vector = acc_total_vector[0];                                            //Copy the total vector to the accelerometer average vector variable.
-
-      for(start = 16; start > 0; start--){                                            //Do this loop 16 times to create an array of accelrometer vectors.
-        acc_total_vector[start] = acc_total_vector[start - 1];                        //Shift every variable one position up in the array.
-        acc_av_vector += acc_total_vector[start];                                     //Add the array value to the acc_av_vector variable.
+      actuator_write(m4, esc_4);          
+    }
+    if(strcmp(mode,"vibration_check")==0)
+    {
+      //If motor 1, 2, 3 or 4 is selected by the user.
+      loop_counter ++;                                                                    //Add 1 to the loop_counter variable.
+      if(new_function_request == true && loop_counter == 250){                            //Wait for the throttle to be set to 0.
+        printf("Set throttle to 1000 (low). It's now set to: ");                    //Print message on the serial monitor.
+        printf("%d \n",receiver_input_channel_3);                                         //Print the actual throttle position.
+        loop_counter = 0;                                                                 //Reset the loop_counter variable.
       }
+      if(new_function_request == false)
+      {                                                  //When the throttle was in the lowest position do this.
+        receiver_input_channel_3 = convert_receiver_channel(3);                           //Convert the actual receiver signals for throttle to the standard 1000 - 2000us.
+        if(data == '1' || data == '5')esc_1 = receiver_input_channel_3;                   //If motor 1 is requested set the pulse for motor 1 equal to the throttle channel.
+        else esc_1 = 1000;                                                                //If motor 1 is not requested set the pulse for the ESC to 1000us (off).
+        if(data == '2' || data == '5')esc_2 = receiver_input_channel_3;                   //If motor 2 is requested set the pulse for motor 1 equal to the throttle channel.
+        else esc_2 = 1000;                                                                //If motor 2 is not requested set the pulse for the ESC to 1000us (off).
+        if(data == '3' || data == '5')esc_3 = receiver_input_channel_3;                   //If motor 3 is requested set the pulse for motor 1 equal to the throttle channel.
+        else esc_3 = 1000;                                                                //If motor 3 is not requested set the pulse for the ESC to 1000us (off).
+        if(data == '4' || data == '5')esc_4 = receiver_input_channel_3;                   //If motor 4 is requested set the pulse for motor 1 equal to the throttle channel.
+        else esc_4 = 1000;                                                                //If motor 4 is not requested set the pulse for the ESC to 1000us (off).
 
-      acc_av_vector /= 17;                                                            //Divide the acc_av_vector by 17 to get the avarage total accelerometer vector.
+        actuator_write(m1, esc_1);
+        actuator_write(m2, esc_2);
+        actuator_write(m3, esc_3);
+        actuator_write(m4, esc_4);                                                               //Send the ESC control pulses.
+        // printf("actutor write");
+        //For balancing the propellors it's possible to use the accelerometer to measure the vibrations.
+        gyro_signalen();
+        acc_total_vector[0] = sqrt((acc_x*acc_x)+(acc_y*acc_y)+(acc_z*acc_z));          //Calculate the total accelerometer vector.
 
-      if(vibration_counter < 20){                                                     //If the vibration_counter is less than 20 do this.
-        vibration_counter ++;                                                         //Increment the vibration_counter variable.
-        vibration_total_result += abs(acc_total_vector[0] - acc_av_vector);           //Add the absolute difference between the avarage vector and current vector to the vibration_total_result variable.
-      }
-      else{
-        vibration_counter = 0;                                                        //If the vibration_counter is equal or larger than 20 do this.
-        printf("%f \n",vibration_total_result/50);                                    //Print the total accelerometer vector divided by 50 on the serial monitor.
-        vibration_total_result = 0;                                                   //Reset the vibration_total_result variable.
+        acc_av_vector = acc_total_vector[0];                                            //Copy the total vector to the accelerometer average vector variable.
+
+        for(start = 16; start > 0; start--){                                            //Do this loop 16 times to create an array of accelrometer vectors.
+          acc_total_vector[start] = acc_total_vector[start - 1];                        //Shift every variable one position up in the array.
+          acc_av_vector += acc_total_vector[start];                                     //Add the array value to the acc_av_vector variable.
+        }
+
+        acc_av_vector /= 17;                                                            //Divide the acc_av_vector by 17 to get the avarage total accelerometer vector.
+
+        if(vibration_counter < 20){                                                     //If the vibration_counter is less than 20 do this.
+          vibration_counter ++;                                                         //Increment the vibration_counter variable.
+          vibration_total_result += abs(acc_total_vector[0] - acc_av_vector);           //Add the absolute difference between the avarage vector and current vector to the vibration_total_result variable.
+        }
+        else{
+          vibration_counter = 0;                                                        //If the vibration_counter is equal or larger than 20 do this.
+          printf("%f \n",vibration_total_result/50);                                    //Print the total accelerometer vector divided by 50 on the serial monitor.
+          vibration_total_result = 0;                                                   //Reset the vibration_total_result variable.
+        }
       }
     }
     if(prog_off==-1)break;

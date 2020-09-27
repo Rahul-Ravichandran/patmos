@@ -104,7 +104,7 @@ const float pid_i_gain_pitch = pid_i_gain_roll;              //Gain setting for 
 const float pid_d_gain_pitch = pid_d_gain_roll;              //Gain setting for the pitch D-controller.
 int pid_max_pitch = 400;                    //Maximum output of the PID-controller (+/-)
 
-const float pid_p_gain_yaw = 0.13;                //Gain setting for the pitch P-controller. //4.0
+const float pid_p_gain_yaw = 0.2;                //Gain setting for the pitch P-controller. //4.0
 const float pid_i_gain_yaw = 0.0002;               //Gain setting for the pitch I-controller. //0.02
 const float pid_d_gain_yaw = 0.1;                //Gain setting for the pitch D-controller.
 int pid_max_yaw = 400;                     //Maximum output of the PID-controller (+/-)
@@ -114,7 +114,7 @@ bool auto_level = true;                 //Auto level on (true) or off (false)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Declaring global variables
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-int low[5]={0,1068,1100,1108,1068}, center[5]={0,1488,1504,1504,1468}, high[5]={0,1892,1908,1904,1864};
+int low[5]={0,1012,1002,1012,1000}, center[5]={0,1500,1503,1500,1499}, high[5]={0,1998,2000,1999,1992};///(0,th,roll,pitch,yaw)
 unsigned int  last_channel_1, last_channel_2, last_channel_3, last_channel_4;
 unsigned int  eeprom_data[36];
 unsigned int  highByte, lowByte;
@@ -256,7 +256,7 @@ void calculate_pid()
 {
   //Roll calculations
   pid_error_temp = gyro_roll_input - pid_roll_setpoint;
-  printf("pid_error_temp_roll:%f  ",pid_error_temp);
+  // printf("pid_error_temp_roll:%f  ",pid_error_temp);
 
   pid_i_mem_roll += pid_i_gain_roll * pid_error_temp;
   if(pid_i_mem_roll > pid_max_roll)pid_i_mem_roll = pid_max_roll;
@@ -270,7 +270,7 @@ void calculate_pid()
 
   //Pitch calculations
   pid_error_temp = gyro_pitch_input - pid_pitch_setpoint;
-  printf("pid_error_temp_pitch:%f  ",pid_error_temp);
+  // printf("pid_error_temp_pitch:%f  ",pid_error_temp);
 
   pid_i_mem_pitch += pid_i_gain_pitch * pid_error_temp;
   if(pid_i_mem_pitch > pid_max_pitch)pid_i_mem_pitch = pid_max_pitch;
@@ -284,7 +284,7 @@ void calculate_pid()
 
   //Yaw calculations
   pid_error_temp = gyro_yaw_input - pid_yaw_setpoint;
-  printf("pid_error_temp_pitch_yaw:%f  ",pid_error_temp);
+  // printf("pid_error_temp_pitch_yaw:%f  ",pid_error_temp);
   pid_i_mem_yaw += pid_i_gain_yaw * pid_error_temp;
   if(pid_i_mem_yaw > pid_max_yaw)pid_i_mem_yaw = pid_max_yaw;
   else if(pid_i_mem_yaw < pid_max_yaw * -1)pid_i_mem_yaw = pid_max_yaw * -1;
@@ -293,7 +293,7 @@ void calculate_pid()
   if(pid_output_yaw > pid_max_yaw)pid_output_yaw = pid_max_yaw;
   else if(pid_output_yaw < pid_max_yaw * -1)pid_output_yaw = pid_max_yaw * -1;
   pid_last_yaw_d_error = pid_error_temp;
-  printf("pid_output_pitch:%f pid_output_roll:%f pid_output_yaw:%f \n",pid_output_pitch,pid_output_roll,pid_output_yaw);
+  printf("pid_output_pitch:%f pid_output_roll:%f pid_output_yaw:%f \n ",pid_output_pitch,pid_output_roll,pid_output_yaw);
 }
 
 //This part converts the actual receiver signals to a standardized 1000 – 1500 – 2000 microsecond value.
@@ -307,22 +307,22 @@ int convert_receiver_channel(unsigned int function)
   if(function==1)
   {
     reverse = 0;                      //Reverse channel when most significant bit is set
-    channel =2;
+    channel =2;//roll
   }
   else if(function==2)
   {
     reverse = 0;
-    channel=3;
+    channel=3;//pitch
   }
   else if(function==3)
   {
     reverse = 0;
-    channel=1;
+    channel=1;//throttle
   }
   else
   {
     reverse = 0;                                                            //If the most significant is not set there is no reverse
-    channel =4;
+    channel =4;//yaw
   }
 
   actual = receiver_input[channel];                                            //Read the actual receiver value for the corresponding function
@@ -544,43 +544,6 @@ int main(int argc, char **argv)
     
     //Gyro angle calculations
     //0.0000611 = 1 / (250Hz / 65.5)
-    // angle_pitch += gyro_pitch * 0.0000611;                                    //Calculate the traveled pitch angle and add this to the angle_pitch variable.
-    // angle_roll += gyro_roll * 0.0000611;                                      //Calculate the traveled roll angle and add this to the angle_roll variable.
-
-    // //0.000001066 = 0.0000611 * (3.142(PI) / 180degr) The Arduino sin function is in radians
-    // angle_pitch -= angle_roll * sin(gyro_yaw * 0.000001066);                  //If the IMU has yawed transfer the roll angle to the pitch angel.
-    // angle_roll += angle_pitch * sin(gyro_yaw * 0.000001066);                  //If the IMU has yawed transfer the pitch angle to the roll angel.
-
-    // //Accelerometer angle calculations
-    // acc_total_vector = sqrt((acc_x*acc_x)+(acc_y*acc_y)+(acc_z*acc_z));       //Calculate the total accelerometer vector.
-    
-    // if(abs(acc_y) < acc_total_vector){                                        //Prevent the asin function to produce a NaN
-    //   angle_pitch_acc = asin(acc_y/acc_total_vector)* 57.296;          //Calculate the pitch angle.
-    // }
-    // if(abs(acc_x) < acc_total_vector){                                        //Prevent the asin function to produce a NaN
-    //   angle_roll_acc = asin(acc_x/acc_total_vector)* -57.296;          //Calculate the roll angle.
-    // }
-    
-    // //Place the MPU-6050 spirit level and note the values in the following two lines for calibration.
-    // angle_pitch_acc += -14.0;                                                   //Accelerometer calibration value for pitch.
-    // angle_roll_acc += 15.0;                                                    //Accelerometer calibration value for roll.
-    
-    // angle_pitch = angle_pitch * 0.9996 + angle_pitch_acc * 0.0004;            //Correct the drift of the gyro pitch angle with the accelerometer pitch angle.
-    // angle_roll = angle_roll * 0.9996 + angle_roll_acc * 0.0004;               //Correct the drift of the gyro roll angle with the accelerometer roll angle.
-
-    // //reset pitch nd roll angles to zero for debugging
-    // angle_pitch =0;
-    // angle_roll=0;
-
-    // printf("angle pitch: %f angle_rolll: %f        ",angle_pitch,angle_roll );
-    // pitch_level_adjust = angle_pitch * 15;                                    //Calculate the pitch angle correction
-    // roll_level_adjust = angle_roll * 15;                                      //Calculate the roll angle correction
-
-    // if(!auto_level){                                                          //If the quadcopter is not in auto-level mode
-    //   pitch_level_adjust = 0;                                                 //Set the pitch angle correction to zero.
-    //   roll_level_adjust = 0;                                                  //Set the roll angle correcion to zero.
-    // }
-
     angle_pitch += (gyro_pitch / 65.5)*dt;                                           //Calculate the traveled pitch angle and add this to the angle_pitch variable.
     angle_roll += (gyro_roll / 65.5)*dt;                                             //Calculate the traveled roll angle and add this to the angle_roll variable.
 
@@ -621,8 +584,8 @@ int main(int argc, char **argv)
     angle_pitch = angle_pitch * 0.98 + angle_pitch_acc * 0.02;                 //Correct the drift of the gyro pitch angle with the accelerometer pitch angle.
     angle_roll = angle_roll * 0.98 + angle_roll_acc * 0.02;                    //Correct the drift of the gyro roll angle with the accelerometer roll angle.
 
-    pitch_level_adjust = angle_pitch * 15;                                    //Calculate the pitch angle correction
-    roll_level_adjust = angle_roll * 15;                                      //Calculate the roll angle correction
+    pitch_level_adjust = angle_pitch;                                    //Calculate the pitch angle correction
+    roll_level_adjust = angle_roll ;                                      //Calculate the roll angle correction
 
     if(!auto_level){                                                          //If the quadcopter is not in auto-level mode
       pitch_level_adjust = 0;                                                 //Set the pitch angle correction to zero.
@@ -695,10 +658,14 @@ int main(int argc, char **argv)
     pid_yaw_setpoint = 0;
     //We need a little dead band of 16us for better results.
     if(receiver_input_channel_3 > 1050){ //Do not yaw when turning off the motors.
-      if(receiver_input_channel_4 > 1508)pid_yaw_setpoint = (receiver_input_channel_4 - 1508 -30)/3.0;
-      else if(receiver_input_channel_4 < 1492)pid_yaw_setpoint = (receiver_input_channel_4 - 1492 -30)/3.0;
+      // if(receiver_input_channel_4 > 1538)pid_yaw_setpoint = (receiver_input_channel_4 - 1508)/3.0;
+      // else if(receiver_input_channel_4 < 1522)pid_yaw_setpoint = (receiver_input_channel_4 - 1492 )/3.0;
+      pid_yaw_setpoint = (receiver_input_channel_4 - 1500)/3.0;
     }
-    
+    // printf("receiver_input_channel_1:%d, receiver_input_channel_2:%d,receiver_input_channel_4:%d \n",receiver_input_channel_1,receiver_input_channel_2,receiver_input_channel_4);
+    // printf("pid_roll_setpoint:%f, pid_pitch_setpoint:%f,pid_yaw_setpoint:%f \n",pid_roll_setpoint,pid_pitch_setpoint,pid_yaw_setpoint);
+    // printf("receiver_input[1]:%d, receiver_input[2]:%d, receiver_input[3]:%d, receiver_input[4]:%d, \n",receiver_input[1],receiver_input[2],receiver_input[3],receiver_input[4]);
+
     calculate_pid();                                                            //PID inputs are known. So we can calculate the pid output.
 
     // getting receiver information
@@ -755,6 +722,7 @@ int main(int argc, char **argv)
       esc_4 = 1000;                                                           //If start is not 2 keep a 1000us pulse for ess-4.
     }
 
+    // printf("  esc_1:%d esc_2:%d esc_3:%d esc_4:%d \n",esc_1,esc_2,esc_3,esc_4);
     // getting receiver information
     intr_handler();
 
