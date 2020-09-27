@@ -94,9 +94,9 @@ bool first_angle=false;
 // float pid_p_gain_yaw = 4.0;                //Gain setting for the pitch P-controller. //4.0
 // float pid_i_gain_yaw = 0.02;               //Gain setting for the pitch I-controller. //0.02
 // float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller.
-const float pid_p_gain_roll = 0.7;               //Gain setting for the roll P-controller
-const float pid_i_gain_roll = 0.01;              //Gain setting for the roll I-controller
-const float pid_d_gain_roll = 5;              //Gain setting for the roll D-controller
+const float pid_p_gain_roll = 0.13;               //Gain setting for the roll P-controller
+const float pid_i_gain_roll = 0.0005;              //Gain setting for the roll I-controller
+const float pid_d_gain_roll = 0.2;              //Gain setting for the roll D-controller
 int pid_max_roll = 400;                    //Maximum output of the PID-controller (+/-)
 
 const float pid_p_gain_pitch = pid_p_gain_roll;               //Gain setting for the pitch P-controller.
@@ -104,9 +104,9 @@ const float pid_i_gain_pitch = pid_i_gain_roll;              //Gain setting for 
 const float pid_d_gain_pitch = pid_d_gain_roll;              //Gain setting for the pitch D-controller.
 int pid_max_pitch = 400;                    //Maximum output of the PID-controller (+/-)
 
-const float pid_p_gain_yaw = 1.5;                //Gain setting for the pitch P-controller. //4.0
-const float pid_i_gain_yaw = 0.01;               //Gain setting for the pitch I-controller. //0.02
-const float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller.
+const float pid_p_gain_yaw = 0.13;                //Gain setting for the pitch P-controller. //4.0
+const float pid_i_gain_yaw = 0.0002;               //Gain setting for the pitch I-controller. //0.02
+const float pid_d_gain_yaw = 0.1;                //Gain setting for the pitch D-controller.
 int pid_max_yaw = 400;                     //Maximum output of the PID-controller (+/-)
 
 bool auto_level = true;                 //Auto level on (true) or off (false)
@@ -292,7 +292,6 @@ void calculate_pid()
   pid_output_yaw = pid_p_gain_yaw * pid_error_temp + pid_i_mem_yaw + pid_d_gain_yaw * (pid_error_temp - pid_last_yaw_d_error);
   if(pid_output_yaw > pid_max_yaw)pid_output_yaw = pid_max_yaw;
   else if(pid_output_yaw < pid_max_yaw * -1)pid_output_yaw = pid_max_yaw * -1;
-
   pid_last_yaw_d_error = pid_error_temp;
   printf("pid_output_pitch:%f pid_output_roll:%f pid_output_yaw:%f \n",pid_output_pitch,pid_output_roll,pid_output_yaw);
 }
