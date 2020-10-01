@@ -94,9 +94,9 @@ bool first_angle=false;
 // float pid_p_gain_yaw = 4.0;                //Gain setting for the pitch P-controller. //4.0
 // float pid_i_gain_yaw = 0.02;               //Gain setting for the pitch I-controller. //0.02
 // float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller.
-const float pid_p_gain_roll = 0.34;               //Gain setting for the roll P-controller
+const float pid_p_gain_roll = 0.45;               //Gain setting for the roll P-controller
 const float pid_i_gain_roll = 0.0005;              //Gain setting for the roll I-controller
-const float pid_d_gain_roll = 3;              //Gain setting for the roll D-controller
+const float pid_d_gain_roll = 1;              //Gain setting for the roll D-controller
 int pid_max_roll = 400;                    //Maximum output of the PID-controller (+/-)
 
 const float pid_p_gain_pitch = pid_p_gain_roll;               //Gain setting for the pitch P-controller.

@@ -9,6 +9,6 @@ LDFLAGS?= \
         -Xgold --defsym -Xgold __heap_end=0x070000
 
 all:
-	patmos-clang -I ../.. -O2 $(LDFLAGS) $(MAIN).c MadgwickAHRS.c -o de10-IMU.elf -lm
+	patmos-clang -I ../.. -O2 $(LDFLAGS) $(MAIN).c -o de10-IMU.elf -lm
 # 	patmos-clang -o  de10-IMU.elf $(MAIN).c -lm 
 
