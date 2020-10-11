@@ -1,4 +1,4 @@
-///PREDICT PROJECT FLIGHT CONTROLLER
+///PREDICT PROJECT ESC CALIBRATE
 // This code is used to callibrate the esc and check for vibrations from each motor and is also used to check the transmitter values 
 
 #include <stdio.h>
