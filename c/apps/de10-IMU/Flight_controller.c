@@ -157,6 +157,7 @@ float pid_i_mem_roll, pid_roll_setpoint, gyro_roll_input=0.0, pid_output_roll, p
 float pid_i_mem_pitch, pid_pitch_setpoint, gyro_pitch_input=0.0, pid_output_pitch, pid_last_pitch_d_error;
 float pid_i_mem_yaw, pid_yaw_setpoint, gyro_yaw_input=0.0, pid_output_yaw, pid_last_yaw_d_error;
 float angle_roll_acc, angle_pitch_acc, angle_pitch, angle_roll;
+float sensitivity =0.5;                                                 /// decreases the sensitivity of control of the quadrotor using the transmitter
 
 unsigned int ACCEL_X_H = 0;
 unsigned int ACCEL_X_L = 0;
@@ -595,8 +596,8 @@ int main(int argc, char **argv)
     //In the case of deviding by 3 the max roll rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
     pid_roll_setpoint = 0;
     //We need a little dead band of 16us for better results.
-    if(receiver_input_channel_1 > 1508)pid_roll_setpoint = receiver_input_channel_1 - 1508;
-    else if(receiver_input_channel_1 < 1492)pid_roll_setpoint = receiver_input_channel_1 - 1492;
+    if(receiver_input_channel_1 > 1508)pid_roll_setpoint = (int)((receiver_input_channel_1 - 1508)*sensitivity);
+    else if(receiver_input_channel_1 < 1492)pid_roll_setpoint = (int)((receiver_input_channel_1 - 1492)*sensitivity);
 
     pid_roll_setpoint -= roll_level_adjust;                                   //Subtract the angle correction from the standardized receiver roll input value.
     pid_roll_setpoint /= 3.0;                                                 //Divide the setpoint for the PID roll controller by 3 to get angles in degrees.
@@ -606,8 +607,8 @@ int main(int argc, char **argv)
     //In the case of deviding by 3 the max pitch rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
     pid_pitch_setpoint = 0;
     //We need a little dead band of 16us for better results.
-    if(receiver_input_channel_2 > 1508)pid_pitch_setpoint = receiver_input_channel_2 - 1508;
-    else if(receiver_input_channel_2 < 1492)pid_pitch_setpoint = receiver_input_channel_2 - 1492;
+    if(receiver_input_channel_2 > 1508)pid_pitch_setpoint = (int)((receiver_input_channel_2 - 1508)*sensitivity);
+    else if(receiver_input_channel_2 < 1492)pid_pitch_setpoint = (int)((receiver_input_channel_2 - 1492)*sensitivity);
 
     pid_pitch_setpoint -= pitch_level_adjust;                                  //Subtract the angle correction from the standardized receiver pitch input value.
     pid_pitch_setpoint /= 3.0;                                                 //Divide the setpoint for the PID pitch controller by 3 to get angles in degrees.
@@ -617,7 +618,7 @@ int main(int argc, char **argv)
     pid_yaw_setpoint = 0;
     //We need a little dead band of 16us for better results.
     if(receiver_input_channel_3 > 1050){ //Do not yaw when turning off the motors.
-      pid_yaw_setpoint = (receiver_input_channel_4 - 1500)/3.0;
+      pid_yaw_setpoint = (receiver_input_channel_4 - 1500)*sensitivity/3.0;
     }
 
     calculate_pid();                                                            //PID inputs are known. So we can calculate the pid output.
