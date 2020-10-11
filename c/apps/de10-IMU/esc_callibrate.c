@@ -1,6 +1,5 @@
-//Edit the low, center and end values of the receiver inputs
-//also edit the direction of the reciver channels
-//MAY BE ADD TWBR which is ic speed to 400kHz
+///PREDICT PROJECT FLIGHT CONTROLLER
+// This code is used to callibrate the esc and check for vibrations from each motor and is also used to check the transmitter values 
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,11 +9,11 @@
 #include <math.h>
 #include <machine/rtc.h>
 #include<string.h>
-#define battery_voltage_available 0
  //channel 1- roll
 // channel 2 - pitch
 // channel 3- throttle
 // channel 4- yaw
+
 //motors
 #define MOTOR ( ( volatile _IODEV unsigned * )  PATMOS_IO_ACT+0x10 )
 #define m1 0
@@ -22,22 +21,19 @@
 #define m3 2
 #define m4 3
 
-//battery voltage read
+//battery voltage read register
 #define BATTERY ( ( volatile _IODEV unsigned * )  PATMOS_IO_AUDIO )
 
-//Receiver controller
+//Receiver controller register
 #define RECEIVER ( ( volatile _IODEV unsigned * ) PATMOS_IO_ACT )
 
-//LEDs
+//LEDs register
 #define LED ( *( ( volatile _IODEV unsigned * ) PATMOS_IO_LED ) )
 
-//I2C controller
+//I2C controller register
 #define I2C ( *( ( volatile _IODEV unsigned * ) PATMOS_IO_I2C ) )
 
 // Default I2C address for the MPU-6050 is 0x68.
-// But only if the AD0 pin is low.
-// Some sensor boards have AD0 high, and the
-// I2C address thus becomes 0x69.
 #define MPU6050_I2C_ADDRESS 0x68
 
 //MCU6050 registers
@@ -78,8 +74,9 @@ unsigned int GYRO_Y_H = 0;
 unsigned int GYRO_Y_L = 0;
 unsigned int GYRO_Z_H = 0;
 unsigned int GYRO_Z_L = 0;
-///////////initialization
 
+
+///////////initialization
 int temperature=0;
 double acc_x=0.0, acc_y=0.0, acc_z=0.0, acc_total_vector[20],acc_av_vector=0.0, vibration_total_result=0.0;
 short int acc_axis[4]={0,0,0,0}, gyro_axis[4]={0,0,0,0};
@@ -88,53 +85,50 @@ int cal_int=0, loop_counter=0;
 double gyro_axis_cal[4]={0.0,0.0,0.0,0.0};
 int gyro_address = MPU6050_I2C_ADDRESS,vibration_counter;
 bool first_angle=false;
-char data='5';
-char mode[] ="esc_callibrate";
+char data='5';                            //select which motor to test for vibration check
+char mode[] ="esc_callibrate";            //select which mode to run: esc_callibrate or vibration_check or transmitter_signal_check
+int max_min_throttle[2]={1500,1500},max_min_roll[2]={1500,1500},max_min_pitch[2]={1500,1500},max_min_yaw[2]={1500,1500};
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //PID gain and limit settings
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-float pid_p_gain_roll = 1.3;               //Gain setting for the roll P-controller
-float pid_i_gain_roll = 0.04;              //Gain setting for the roll I-controller
-float pid_d_gain_roll = 18.0;              //Gain setting for the roll D-controller
-int pid_max_roll = 400;                    //Maximum output of the PID-controller (+/-)
+const float pid_p_gain_roll = 0.43;               //Gain setting for the roll P-controller
+const float pid_i_gain_roll = 0.0005;             //Gain setting for the roll I-controller
+const float pid_d_gain_roll = 1.51;               //Gain setting for the roll D-controller
+int pid_max_roll = 400;                           //Maximum output of the PID-controller (+/-)
 
-float pid_p_gain_pitch = 1.3;               //Gain setting for the pitch P-controller.
-float pid_i_gain_pitch = 0.04;              //Gain setting for the pitch I-controller.
-float pid_d_gain_pitch = 18.0;              //Gain setting for the pitch D-controller.
-int pid_max_pitch = 400;                    //Maximum output of the PID-controller (+/-)
+const float pid_p_gain_pitch = pid_p_gain_roll;   //Gain setting for the pitch P-controller.
+const float pid_i_gain_pitch = pid_i_gain_roll;   //Gain setting for the pitch I-controller.
+const float pid_d_gain_pitch = pid_d_gain_roll;   //Gain setting for the pitch D-controller.
+int pid_max_pitch = 400;                          //Maximum output of the PID-controller (+/-)
 
-float pid_p_gain_yaw = 4.0;                //Gain setting for the pitch P-controller. //4.0
-float pid_i_gain_yaw = 0.02;               //Gain setting for the pitch I-controller. //0.02
-float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller.
-int pid_max_yaw = 400;                     //Maximum output of the PID-controller (+/-)
+const float pid_p_gain_yaw = 4;                   //Gain setting for the pitch P-controller. //4.0
+const float pid_i_gain_yaw = 0.002;               //Gain setting for the pitch I-controller. //0.02
+const float pid_d_gain_yaw = 0.0;                 //Gain setting for the pitch D-controller.
+int pid_max_yaw = 400;                            //Maximum output of the PID-controller (+/-)
 
-bool auto_level = true;                 //Auto level on (true) or off (false)
+bool auto_level = true;                           //Auto level on (true) or off (false)
 int prog_off=0;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Declaring global variables
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-int low[5]={0,1068,1100,1108,1068}, center[5]={0,1488,1504,1504,1468}, high[5]={0,1892,1908,1904,1864};
-unsigned int  last_channel_1, last_channel_2, last_channel_3, last_channel_4;
-unsigned int  eeprom_data[36];
-unsigned int  highByte, lowByte;
+int low[5]={0,1012,1002,1012,1000}, center[5]={0,1500,1503,1500,1499}, high[5]={0,1998,2000,1999,1992};///(0,th,roll,pitch,yaw)
 volatile int receiver_input_channel_1, receiver_input_channel_2, receiver_input_channel_3, receiver_input_channel_4;
-int counter_channel_1, counter_channel_2, counter_channel_3, counter_channel_4;
 int esc_1, esc_2, esc_3, esc_4;
 int throttle, battery_voltage;
 int start;
 int receiver_input[5];
 float roll_level_adjust, pitch_level_adjust;
 bool new_function_request=true;
-unsigned long timer_channel_1, timer_channel_2, timer_channel_3, timer_channel_4, esc_timer, esc_loop_timer;
-unsigned long timer_1, timer_2, timer_3, timer_4, current_time;
 unsigned long zero_timer;
 
+//writes pwm signlas of width=data to the esc
 void actuator_write(unsigned int actuator_id, unsigned int data)
 {
   *(MOTOR + actuator_id) = data;
 }
 
-//Reads from propulsion specified by propulsion ID (0 to 4)
+//get pulse width data from receiver
 int receiver_read(unsigned int receiver_id){
 
   unsigned int clock_cycles_counted = *(RECEIVER + receiver_id);
@@ -168,23 +162,21 @@ int i2c_read(unsigned char chipaddress, unsigned char regaddress)
   }
 }
 
+//delay function ins microseconds
 void micros(int microseconds)
 {
   unsigned int timer_ms = (get_cpu_usecs());
   unsigned int loop_timer = timer_ms;
   while(timer_ms - loop_timer < microseconds)timer_ms = get_cpu_usecs();
 }
-// interrupt handler
-void intr_handler(void) {
-  // exc_prologue();
 
+// stores receiver values in an global array
+void intr_handler(void) {
   // read the receiver pwm duty cycle
   receiver_input[1] = receiver_read(0);
   receiver_input[2] = receiver_read(1);
   receiver_input[3] = receiver_read(2);
   receiver_input[4] = receiver_read(3);
-
-  // exc_epilogue();
 }
 
 
@@ -198,19 +190,20 @@ void set_gyro_registers()
 
 }
 
-
+//waits for transmitter to be swicthed on 
 void wait_for_receiver(){
   int zero = 1;                                                                //Set all bits in the variable zero to 0
   while(zero){
-    intr_handler();                                                             //Stay in this loop until the 4 lowest bits are set
+    intr_handler();                                                            //Stay in this loop until the 4 lowest bits are set
     if(receiver_input[1] < 2100 && receiver_input[1] > 900 && 
     receiver_input[2] < 2100 && receiver_input[2] > 900 && 
     receiver_input[3] < 2100 && receiver_input[3] > 900 && 
-    receiver_input[4] < 2100 && receiver_input[4] > 900)zero=0;  //Set bit 3 if the receiver pulse 4 is within the 900 - 2100 range
-    micros(500000);                                                                 //Wait 500 milliseconds
+    receiver_input[4] < 2100 && receiver_input[4] > 900)zero=0;                //Set bit 3 if the receiver pulse 4 is within the 900 - 2100 range
+    micros(500000);                                                            //Wait 500 milliseconds
   }
 }
 
+///1 to switch on LED and 0 to off
 void LED_out(int i){
   if(i==1) LED = 0x0001;
   else LED = 0x0000;
@@ -219,16 +212,15 @@ void LED_out(int i){
 
 
 //This part converts the actual receiver signals to a standardized 1000 – 1500 – 2000 microsecond value.
-//The stored data in the EEPROM is used.
 int convert_receiver_channel(unsigned int function)
 {
-  unsigned int  channel, reverse;                                                       //First we declare some local variables
-  int actual; ///(0,th,roll,pitch,yaw)
+  unsigned int  channel, reverse;                                 //First we declare some local variables
+  int actual;                                                     ///(0,th,roll,pitch,yaw)
   int difference;
 
   if(function==1)
   {
-    reverse = 0;                      //Reverse channel when most significant bit is set
+    reverse = 0;                                                  //Reverse =1 when the transmitter channels are reversed, else 0
     channel =2;
   }
   else if(function==2)
@@ -243,26 +235,26 @@ int convert_receiver_channel(unsigned int function)
   }
   else
   {
-    reverse = 0;                                                            //If the most significant is not set there is no reverse
+    reverse = 0;                                                   
     channel =4;
   }
 
-  actual = receiver_input[channel];                                            //Read the actual receiver value for the corresponding function
+  actual = receiver_input[channel];                                //Read the actual receiver value for the corresponding function
   // low = 1000;  //Store the low value for the specific receiver input channel
   // center = 1500; //Store the center value for the specific receiver input channel
   // high = 2000;   //Store the high value for the specific receiver input channel
 
-  if(actual < center[channel]){                                                         //The actual receiver value is lower than the center value
+  if(actual < center[channel]){                                    //The actual receiver value is lower than the center value
     if(actual < low[channel])actual = low[channel];                                              //Limit the lowest value to the value that was detected during setup
     difference = ((long)(center[channel] - actual) * (long)500) / (center[channel] - low[channel]);       //Calculate and scale the actual value to a 1000 - 2000us value
-    if(reverse == 1)return 1500 + difference;                                  //If the channel is reversed
-    else return 1500 - difference;                                             //If the channel is not reversed
+    if(reverse == 1)return 1500 + difference;                       //If the channel is reversed
+    else return 1500 - difference;                                  //If the channel is not reversed
   }
   else if(actual > center[channel]){                                                                        //The actual receiver value is higher than the center value
     if(actual > high[channel])actual = high[channel];                                            //Limit the lowest value to the value that was detected during setup
     difference = ((long)(actual - center[channel]) * (long)500) / (high[channel] - center[channel]);      //Calculate and scale the actual value to a 1000 - 2000us value
-    if(reverse == 1)return 1500 - difference;                                  //If the channel is reversed
-    else return 1500 + difference;                                             //If the channel is not reversed
+    if(reverse == 1)return 1500 - difference;                       //If the channel is reversed
+    else return 1500 + difference;                                  //If the channel is not reversed
   }
   else return 1500;
 }
@@ -292,57 +284,44 @@ void gyro_signalen()
   GYRO_Z_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_GYRO_ZOUT_H);
   GYRO_Z_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_GYRO_ZOUT_L);
 
-  acc_axis[1] = (ACCEL_X_H<<8|ACCEL_X_L);                    //Add the low and high byte to the acc_x variable.
-  acc_axis[2] = (ACCEL_Y_H<<8|ACCEL_Y_L);                  //Add the low and high byte to the acc_y variable.
-  acc_axis[3] = (ACCEL_Z_H<<8|ACCEL_Z_L);                    //Add the low and high byte to the acc_z variable.
-  temperature = (TEMP_H<<8|TEMP_L);                    //Add the low and high byte to the temperature variable.
-  gyro_axis[1] = (GYRO_X_H<<8|GYRO_X_L);                   //Read high and low part of the angular data.
-  gyro_axis[2] = (GYRO_Y_H<<8|GYRO_Y_L);                   //Read high and low part of the angular data.
-  gyro_axis[3] = (GYRO_Z_H<<8|GYRO_Z_L);                   //Read high and low part of the angular data.
-
-  // acc_axis[1] = 0;                    //Add the low and high byte to the acc_x variable.
-  // acc_axis[2] = 0;                  //Add the low and high byte to the acc_y variable.
-  // acc_axis[3] = 0;                    //Add the low and high byte to the acc_z variable.
-  // temperature = 0;                    //Add the low and high byte to the temperature variable.
-  // gyro_axis[1] = 0;                   //Read high and low part of the angular data.
-  // gyro_axis[2] = 0;                   //Read high and low part of the angular data.
-  // gyro_axis[3] = 0;                   //Read high and low part of the angular data.
+  acc_axis[1] = (ACCEL_X_H<<8|ACCEL_X_L);                                 //Add the low and high byte to the acc_x variable.
+  acc_axis[2] = (ACCEL_Y_H<<8|ACCEL_Y_L);                                 //Add the low and high byte to the acc_y variable.
+  acc_axis[3] = (ACCEL_Z_H<<8|ACCEL_Z_L);                                 //Add the low and high byte to the acc_z variable.
+  temperature = (TEMP_H<<8|TEMP_L);                                       //Add the low and high byte to the temperature variable.
+  gyro_axis[1] = (GYRO_X_H<<8|GYRO_X_L);                                  //Read high and low part of the angular data.
+  gyro_axis[2] = (GYRO_Y_H<<8|GYRO_Y_L);                                  //Read high and low part of the angular data.
+  gyro_axis[3] = (GYRO_Z_H<<8|GYRO_Z_L);                                  //Read high and low part of the angular data.
 
   if(cal_int == 2000)
   {
-    gyro_axis[1] -= gyro_axis_cal[1];                            //Only compensate after the calibration.
-    gyro_axis[2] -= gyro_axis_cal[2];                            //Only compensate after the calibration.
-    gyro_axis[3] -= gyro_axis_cal[3];                            //Only compensate after the calibration.
+    gyro_axis[1] -= gyro_axis_cal[1];                                     //Only compensate after the calibration.
+    gyro_axis[2] -= gyro_axis_cal[2];                                     //Only compensate after the calibration.
+    gyro_axis[3] -= gyro_axis_cal[3];                                     //Only compensate after the calibration.
   }
-  gyro_roll = gyro_axis[1];           //Set gyro_roll to the correct axis that was stored in the EEPROM.
-  gyro_pitch = gyro_axis[2];          //Set gyro_pitch to the correct axis that was stored in the EEPROM.
-  gyro_pitch *= -1;              //Invert gyro_pitch if the MSB of EEPROM bit 29 is set.
-  gyro_yaw = gyro_axis[3];            //Set gyro_yaw to the correct axis that was stored in the EEPROM.
-  gyro_yaw *= -1;                //Invert gyro_yaw if the MSB of EEPROM bit 30 is set.
+  gyro_roll = gyro_axis[1];                                               //Set gyro_roll to the correct axis.
+  gyro_pitch = gyro_axis[2];                                              //Set gyro_pitch to the correct axis.
+  gyro_pitch *= -1;                                                       //Invert gyro_pitch to change the axis of sensor data.
+  gyro_yaw = gyro_axis[3];                                                //Set gyro_yaw to the correct axis.
+  gyro_yaw *= -1;                                                         //Invert gyro_yaw to change the axis of sensor data.
 
 
-  acc_x = acc_axis[2];                //Set acc_x to the correct axis that was stored in the EEPROM.
-  acc_x *= -1;                   //Invert acc_x if the MSB of EEPROM bit 29 is set.
-  acc_y = acc_axis[1];                //Set acc_y to the correct axis that was stored in the EEPROM.
-  acc_z = acc_axis[3];                //Set acc_z to the correct axis that was stored in the EEPROM.
-  acc_z *= -1;                   //Invert acc_z if the MSB of EEPROM bit 30 is set.
-
-   //   printf("-----------------------\n");
-   // printf("ACCEL_X = 0x%.2X%.2X (%d)\n", ACCEL_X_H, ACCEL_X_L, (short int)((ACCEL_X_H << 8) | ACCEL_X_L));
-   // printf("ACCEL_Y = 0x%.2X%.2X (%d)\n", ACCEL_Y_H, ACCEL_Y_L, (short int)((ACCEL_Y_H << 8) | ACCEL_Y_L));
-   // printf("ACCEL_Z = 0x%.2X%.2X (%d)\n", ACCEL_Z_H, ACCEL_Z_L, (short int)((ACCEL_Z_H << 8) | ACCEL_Z_L));
-   // printf("TEMP    = 0x%.2X%.2X (%.1f C)\n", TEMP_H, TEMP_L, ((double)((short int)((TEMP_H << 8) | TEMP_L)) + 12412.0) / 340.0 ); //using datasheet formula for T in degrees Celsius
-   // printf("GYRO_X  = 0x%.2X%.2X (%d)\n", GYRO_X_H, GYRO_X_L, (short int)((GYRO_X_H << 8) | GYRO_X_L));
-   // printf("GYRO_Y  = 0x%.2X%.2X (%d)\n", GYRO_Y_H, GYRO_Y_L, (short int)((GYRO_Y_H << 8) | GYRO_Y_L));
-   // printf("GYRO_Z  = 0x%.2X%.2X (%d)\n", GYRO_Z_H, GYRO_Z_L, (short int)((GYRO_Z_H << 8) | GYRO_Z_L));
+  acc_x = acc_axis[2];                                                    //Set acc_x to the correct axis.
+  acc_x *= -1;                                                            //Invert acc_x.
+  acc_y = acc_axis[1];                                                    //Set acc_y to the correct axis.
+  acc_z = acc_axis[3];                                                    //Set acc_z to the correct axis.
+  acc_z *= -1;                                                            //Invert acc_z.
 }
 
 int main(int argc, char **argv)
 {
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Setup routine
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
   wait_for_receiver();                                                                  //Wait until the receiver is active.
   zero_timer = get_cpu_usecs(); 
-  set_gyro_registers();
-  actuator_write(m1, 1000);
+  set_gyro_registers();                                                                 // start IMU from the sleep mode
+  actuator_write(m1, 1000);                                                             //give motors 1000us pulse to switch it off
   actuator_write(m2, 1000);
   actuator_write(m3, 1000);
   actuator_write(m4, 1000);
@@ -354,40 +333,24 @@ int main(int argc, char **argv)
   first_angle = false;      
   vibration_counter = 0;
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //Setup routine
+  //Main program loop
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  while(1)
+  while(1)                                                                             //run indefinitely until stop signal is received from transmitted
   {
-    while(zero_timer + 8000 > get_cpu_usecs());                                                  //Start the pulse after 4000 micro seconds.
+    while(zero_timer + 20000 > get_cpu_usecs());                                        //Start the pulse after 20000 micro seconds.
     zero_timer = get_cpu_usecs();
-    // printf("zero_timer:%ld\n",zero_timer );
 
-    intr_handler();
+    intr_handler();                                                                     // getting receiver information
 
+    //Stopping the code: throttle low and yaw right, roll left and pitch down
     if(receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1950 && receiver_input_channel_1 < 1050 && receiver_input_channel_2 > 1950)
     {
       prog_off = -1;
-      // printf("motors stop\n");
     }
 
     receiver_input_channel_3 = convert_receiver_channel(3);                               //Convert the actual receiver signals for throttle to the standard 1000 - 2000us.
     if(receiver_input_channel_3 < 1025)new_function_request = false;                      //If the throttle is in the lowest position set the request flag to false.
 
-
-    if(new_function_request==false)
-    {
-      receiver_input_channel_3 = convert_receiver_channel(3);                             //Convert the actual receiver signals for throttle to the standard 1000 - 2000us.
-      esc_1 = receiver_input_channel_3;                                                   //Set the pulse for motor 1 equal to the throttle channel.
-      esc_2 = receiver_input_channel_3;                                                   //Set the pulse for motor 2 equal to the throttle channel.
-      esc_3 = receiver_input_channel_3;                                                   //Set the pulse for motor 3 equal to the throttle channel.
-      esc_4 = receiver_input_channel_3;                                                   //Set the pulse for motor 4 equal to the throttle channel.
-    }
-
-      //esc pwm write
-    actuator_write(m1, esc_1);
-    actuator_write(m2, esc_2);
-    actuator_write(m3, esc_3);
-    actuator_write(m4, esc_4);
 
     if(strcmp(mode,"esc_callibrate")==0 && new_function_request == false)
     {                                       //Only start the calibration mode at first start. 
@@ -401,17 +364,17 @@ int main(int argc, char **argv)
       actuator_write(m3, esc_3);
       actuator_write(m4, esc_4);          
     }
-    if(strcmp(mode,"vibration_check")==0)
+    else if(strcmp(mode,"vibration_check")==0)
     {
       //If motor 1, 2, 3 or 4 is selected by the user.
       loop_counter ++;                                                                    //Add 1 to the loop_counter variable.
       if(new_function_request == true && loop_counter == 250){                            //Wait for the throttle to be set to 0.
-        printf("Set throttle to 1000 (low). It's now set to: ");                    //Print message on the serial monitor.
+        printf("Set throttle to 1000 (low). It's now set to: ");                          //Print message on the serial monitor.
         printf("%d \n",receiver_input_channel_3);                                         //Print the actual throttle position.
         loop_counter = 0;                                                                 //Reset the loop_counter variable.
       }
       if(new_function_request == false)
-      {                                                  //When the throttle was in the lowest position do this.
+      {                                                                                   //When the throttle was in the lowest position do this.
         receiver_input_channel_3 = convert_receiver_channel(3);                           //Convert the actual receiver signals for throttle to the standard 1000 - 2000us.
         if(data == '1' || data == '5')esc_1 = receiver_input_channel_3;                   //If motor 1 is requested set the pulse for motor 1 equal to the throttle channel.
         else esc_1 = 1000;                                                                //If motor 1 is not requested set the pulse for the ESC to 1000us (off).
@@ -451,7 +414,27 @@ int main(int argc, char **argv)
         }
       }
     }
-    if(prog_off==-1)break;
+    else if(strcmp(mode,"transmitter_signal_check")==0)
+    {
+      printf("throttle: %d  roll: %d  pitch: %d  yaw: %d",receiver_input[1],receiver_input[2],receiver_input[3],receiver_input[4]);
+
+      if(max_min_throttle[0]<receiver_input[1])max_min_throttle[0] = receiver_input[1];           //checks the max value of the throttle channel
+      else if(max_min_throttle[1]>receiver_input[1])max_min_throttle[1] = receiver_input[1];      //checks the min value of the throttle channel
+
+      if(max_min_roll[0]<receiver_input[2])max_min_roll[0] = receiver_input[2];                   //checks the max value of the roll channel
+      else if(max_min_roll[1]>receiver_input[2])max_min_roll[1] = receiver_input[2];              //checks the min value of the roll channel
+
+      if(max_min_pitch[0]<receiver_input[3])max_min_pitch[0] = receiver_input[3];                 //checks the max value of the pitch channel
+      else if(max_min_pitch[1]>receiver_input[3])max_min_pitch[1] = receiver_input[3];            //checks the min value of the pitch channel
+
+      if(max_min_yaw[0]<receiver_input[4])max_min_yaw[0] = receiver_input[4];                     //checks the max value of the yaw channel
+      else if(max_min_yaw[1]>receiver_input[4])max_min_yaw[1] = receiver_input[4];                //checks the min value of the yaw channel
+
+      printf("max throttle: %d  max roll: %d max pitch: %d max yaw: %d",max_min_throttle[0],max_min_roll[0],max_min_pitch[0],max_min_yaw[0]);
+      printf("min throttle: %d  min roll: %d min pitch: %d min yaw: %d",max_min_throttle[1],max_min_roll[1],max_min_pitch[1],max_min_yaw[1]);
+
+    }
+    if(prog_off==-1)break;                //switch off the program to re-upload the code
   }
   return 0;
 }
