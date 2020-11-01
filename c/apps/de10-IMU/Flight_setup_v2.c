@@ -1,7 +1,42 @@
-//Edit the low, center and end values of the receiver inputs
-//also edit the direction of the reciver channels
-//MAY BE ADD TWBR which is ic speed to 400kHz
+///PREDICT PROJECT FLIGHT CONTROLLER
+//This is the code for autonomous flight controller
+// This code callibrates the IMU before start and stabilizes the drone using the RPY values from IMU. 
+// It then takes inputs from the transmitter to have a 6DOF control of the drone 
 
+//////////////////////////////////////////////////////////
+// Procedure to start the drone:
+
+// - go to t-crest/patmos folder
+// - upload the code using the command "make APP=de10-IMU comp download"
+// - wait for the program to upload
+// - wait for the IMU to callibrate which is indicated by bliking LED on FPGA
+// - unplug the upload cable
+// - throttle low and yaw left to arm the motors
+// - throttle low and yaw right to disarm the motors
+// - stop the code before uploading, which is done by throttle low, yaw right and roll left and pitch back
+
+///controls
+ //                    throttle up                                             pitch forward
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |                          
+ //                          |                                                       |       
+ // yaw left -------------------------------yaw right       roll left -------------------------------roll right 
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                    throttle down                                           pitch down
+
+//standard header files
 #include <stdio.h>
 #include <stdlib.h>
 #include <machine/patmos.h>
@@ -10,29 +45,46 @@
 #include <math.h>
 #include <machine/rtc.h>
 
+#define battery_voltage_available 0// battery_voltage input from the fpga to compensate the esc input for change in battery volatge(will be later provided by DTU) 
+#define GYRO_CALLIB 1 //set to 1 to swtich on gyro callibration before flight 
+ //channel 1- roll
+// channel 2 - pitch
+// channel 3- throttle
+// channel 4- yaw
 //motors
 #define MOTOR ( ( volatile _IODEV unsigned * )  PATMOS_IO_ACT+0x10 )
 #define m1 0
 #define m2 1
 #define m3 2
 #define m4 3
+///motor configuration
+                  // m4    ^     m1
+                  //  \    |    /
+                  //   \   |   /
+                  //    \  |  /
+                  //     \   /
+                  //      \ /
+                  //       /\
+                  //      /  \
+                  //     /    \
+                  //    /      \
+                  //   /        \
+                  //m3/          \m2
 
-//battery voltage read
+
+//battery voltage read register
 #define BATTERY ( ( volatile _IODEV unsigned * )  PATMOS_IO_AUDIO )
 
-//Receiver controller
+//Receiver controller register
 #define RECEIVER ( ( volatile _IODEV unsigned * ) PATMOS_IO_ACT )
 
-//LEDs
+//LEDs register
 #define LED ( *( ( volatile _IODEV unsigned * ) PATMOS_IO_LED ) )
 
-//I2C controller
+//I2C controller register
 #define I2C ( *( ( volatile _IODEV unsigned * ) PATMOS_IO_I2C ) )
 
 // Default I2C address for the MPU-6050 is 0x68.
-// But only if the AD0 pin is low.
-// Some sensor boards have AD0 high, and the
-// I2C address thus becomes 0x69.
 #define MPU6050_I2C_ADDRESS 0x68
 
 //MCU6050 registers
@@ -115,37 +167,43 @@ unsigned int GYRO_Y_L = 0;
 unsigned int GYRO_Z_H = 0;
 unsigned int GYRO_Z_L = 0;
 
+
+//battery voltage read function(yet to be received from DTU)
 float batteryRead()
 {
   return *(BATTERY);
 }
 
+//writes pwm signlas of width=data to the esc
 void actuator_write(unsigned int actuator_id, unsigned int data)
 {
   *(MOTOR + actuator_id) = data;
 }
 
-//Reads from propulsion specified by propulsion ID (0 to 4)
+//get pulse width data from receiver
 int receiver_read(unsigned int receiver_id){
-  return *(RECEIVER + receiver_id);
+
   unsigned int clock_cycles_counted = *(RECEIVER + receiver_id);
   unsigned int pulse_high_time = (clock_cycles_counted * CPU_PERIOD) / 1000;
 
   return pulse_high_time;
 }
 
+//delay function ins microseconds
 void micros(int microseconds)
 {
   unsigned int timer_ms = (get_cpu_usecs());
   unsigned int loop_timer = timer_ms;
   while(timer_ms - loop_timer < microseconds)timer_ms = get_cpu_usecs();
 }
+
 void millis(int milliseconds)
 {
   unsigned int timer_ms = (get_cpu_usecs()/1000);
   unsigned int loop_timer = timer_ms;
   while(timer_ms - loop_timer < milliseconds)timer_ms = (get_cpu_usecs()/1000);
 }
+
 
 //Writes to i2c, returns -1 if there was an error, 0 if succeded
 int i2c_write(unsigned char chipaddress, unsigned char regaddress, unsigned char data)
@@ -185,36 +243,41 @@ void blink_once()
   return;
 }
 
+///1 to switch on LED and 0 to off
 void LED_out(int i){
   if(i==1) LED = 0x0001;
   else LED = 0x0000;
   return;
 }
 
-// interrupt handler
-void receiver_get(void) {
-  // exc_prologue();
 
+// stores receiver values in an global array
+void intr_handler(void) {
   // read the receiver pwm duty cycle
   receiver_input[1] = receiver_read(0);
   receiver_input[2] = receiver_read(1);
   receiver_input[3] = receiver_read(2);
   receiver_input[4] = receiver_read(3);
-
-  // exc_epilogue();
 }
 
 void set_gyro_registers()
 {
-  //Setup the MPU-6050
+  //Setup the MPU-6050 registers
   while(i2c_write(MPU6050_I2C_ADDRESS, MPU6050_PWR_MGMT_1, 0x00));                    //Set the register bits as 00000000 to activate the gyro
   while(i2c_write(MPU6050_I2C_ADDRESS, MPU6050_GYRO_CONFIG, 0x08));                   //Set the register bits as 00001000 (500dps full scale)
   while(i2c_write(MPU6050_I2C_ADDRESS, MPU6050_ACCEL_CONFIG, 0x10));                  //Set the register bits as 00010000 (+/- 8g full scale range)
   while(i2c_write(MPU6050_I2C_ADDRESS, MPU6050_CONFIG_REG, 0x03));                    //Set the register bits as 00000011 (Set Digital Low Pass Filter to ~43Hz)
+
 }
 
 void gyro_signalen()
 {
+
+  receiver_input_channel_1 = convert_receiver_channel(1);                 //Convert the actual receiver signals for roll to the standard 1000 - 2000us.
+  receiver_input_channel_2 = convert_receiver_channel(2);                 //Convert the actual receiver signals for pitch to the standard 1000 - 2000us.
+  receiver_input_channel_3 = convert_receiver_channel(3);                 //Convert the actual receiver signals for throttle to the standard 1000 - 2000us.
+  receiver_input_channel_4 = convert_receiver_channel(4);                 //Convert the actual receiver signals for yaw to the standard 1000 - 2000us.
+
   //Read the MPU-6050
   ACCEL_X_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_ACCEL_XOUT_H);
   ACCEL_X_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_ACCEL_XOUT_L);
@@ -222,8 +285,8 @@ void gyro_signalen()
   ACCEL_Y_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_ACCEL_YOUT_L);
   ACCEL_Z_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_ACCEL_ZOUT_H);
   ACCEL_Z_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_ACCEL_ZOUT_L);
-  TEMP_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_TEMP_OUT_L);
   TEMP_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_TEMP_OUT_H);
+  TEMP_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_TEMP_OUT_L);
   GYRO_X_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_GYRO_XOUT_H);
   GYRO_X_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_GYRO_XOUT_L);
   GYRO_Y_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_GYRO_YOUT_H);
@@ -231,20 +294,33 @@ void gyro_signalen()
   GYRO_Z_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_GYRO_ZOUT_H);
   GYRO_Z_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_GYRO_ZOUT_L);
 
-  acc_axis[1] = (ACCEL_X_H<<8|ACCEL_X_L);                    //Add the low and high byte to the acc_x variable.
-  acc_axis[2] = (ACCEL_Y_H<<8|ACCEL_Y_L);                  //Add the low and high byte to the acc_y variable.
-  acc_axis[3] = (ACCEL_Z_H<<8|ACCEL_Z_L);                    //Add the low and high byte to the acc_z variable.
-  temperature = (TEMP_H<<8|TEMP_L);                    //Add the low and high byte to the temperature variable.
-  gyro_axis[1] = (GYRO_X_H<<8|GYRO_X_L);                   //Read high and low part of the angular data.
-  gyro_axis[2] = (GYRO_Y_H<<8|GYRO_Y_L);                   //Read high and low part of the angular data.
-  gyro_axis[3] = (GYRO_Z_H<<8|GYRO_Z_L);                   //Read high and low part of the angular data.
+  acc_axis[1] = (ACCEL_X_H<<8|ACCEL_X_L);                                 //Add the low and high byte to the acc_x variable.
+  acc_axis[2] = (ACCEL_Y_H<<8|ACCEL_Y_L);                                 //Add the low and high byte to the acc_y variable.
+  acc_axis[3] = (ACCEL_Z_H<<8|ACCEL_Z_L);                                 //Add the low and high byte to the acc_z variable.
+  temperature = (TEMP_H<<8|TEMP_L);                                       //Add the low and high byte to the temperature variable.
+  gyro_axis[1] = (GYRO_X_H<<8|GYRO_X_L);                                  //Read high and low part of the angular data.
+  gyro_axis[2] = (GYRO_Y_H<<8|GYRO_Y_L);                                  //Read high and low part of the angular data.
+  gyro_axis[3] = (GYRO_Z_H<<8|GYRO_Z_L);                                  //Read high and low part of the angular data.
 
   if(cal_int == 2000)
   {
-    gyro_axis[1] -= gyro_axis_cal[1];                            //Only compensate after the calibration.
-    gyro_axis[2] -= gyro_axis_cal[2];                            //Only compensate after the calibration.
-    gyro_axis[3] -= gyro_axis_cal[3];                            //Only compensate after the calibration.
+    gyro_axis[1] -= gyro_axis_cal[1];                                     //Only compensate after the calibration.
+    gyro_axis[2] -= gyro_axis_cal[2];                                     //Only compensate after the calibration.
+    gyro_axis[3] -= gyro_axis_cal[3];                                     //Only compensate after the calibration.
   }
+  gyro_roll = gyro_axis[1];                                               //Set gyro_roll to the correct axis.
+  gyro_pitch = gyro_axis[2];                                              //Set gyro_pitch to the correct axis.
+  gyro_pitch *= -1;                                                       //Invert gyro_pitch to change the axis of sensor data.
+  gyro_yaw = gyro_axis[3];                                                //Set gyro_yaw to the correct axis.
+  gyro_yaw *= -1;                                                         //Invert gyro_yaw to change the axis of sensor data.
+
+
+  acc_x = acc_axis[2];                                                    //Set acc_x to the correct axis.
+  acc_x *= -1;                                                            //Invert acc_x.
+  acc_y = acc_axis[1];                                                    //Set acc_y to the correct axis.
+  acc_z = acc_axis[3];                                                    //Set acc_z to the correct axis.
+  acc_z *= -1;                                                            //Invert acc_z.
+
 }
 
 void print_intro(void) {

@@ -1,7 +1,42 @@
-//Edit the low, center and end values of the receiver inputs
-//also edit the direction of the reciver channels
-//MAY BE ADD TWBR which is ic speed to 400kHz
+///PREDICT PROJECT FLIGHT CONTROLLER
+//this code is for autonomous flight controller
+// This code callibrates the IMU before start and stabilizes the drone using the RPY values from IMU. 
+// It then takes inputs from the transmitter to have a 6DOF control of the drone 
 
+//////////////////////////////////////////////////////////
+// Procedure to start the drone:
+
+// - go to t-crest/patmos folder
+// - upload the code using the command "make APP=de10-IMU comp download"
+// - wait for the program to upload
+// - wait for the IMU to callibrate which is indicated by bliking LED on FPGA
+// - unplug the upload cable
+// - throttle low and yaw left to arm the motors
+// - throttle low and yaw right to disarm the motors
+// - stop the code before uploading, which is done by throttle low, yaw right and roll left and pitch back
+
+///controls
+ //                    throttle up                                             pitch forward
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |                          
+ //                          |                                                       |       
+ // yaw left -------------------------------yaw right       roll left -------------------------------roll right 
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                          |                                                       |
+ //                    throttle down                                           pitch down
+
+//standard header files
 #include <stdio.h>
 #include <stdlib.h>
 #include <machine/patmos.h>
@@ -10,29 +45,46 @@
 #include <math.h>
 #include <machine/rtc.h>
 
+#define battery_voltage_available 0// battery_voltage input from the fpga to compensate the esc input for change in battery volatge(will be later provided by DTU) 
+#define GYRO_CALLIB 1 //set to 1 to swtich on gyro callibration before flight 
+ //channel 1- roll
+// channel 2 - pitch
+// channel 3- throttle
+// channel 4- yaw
 //motors
 #define MOTOR ( ( volatile _IODEV unsigned * )  PATMOS_IO_ACT+0x10 )
 #define m1 0
 #define m2 1
 #define m3 2
 #define m4 3
+///motor configuration
+                  // m4    ^     m1
+                  //  \    |    /
+                  //   \   |   /
+                  //    \  |  /
+                  //     \   /
+                  //      \ /
+                  //       /\
+                  //      /  \
+                  //     /    \
+                  //    /      \
+                  //   /        \
+                  //m3/          \m2
 
-//battery voltage read
+
+//battery voltage read register
 #define BATTERY ( ( volatile _IODEV unsigned * )  PATMOS_IO_AUDIO )
 
-//Receiver controller
+//Receiver controller register
 #define RECEIVER ( ( volatile _IODEV unsigned * ) PATMOS_IO_ACT )
 
-//LEDs
+//LEDs register
 #define LED ( *( ( volatile _IODEV unsigned * ) PATMOS_IO_LED ) )
 
-//I2C controller
+//I2C controller register
 #define I2C ( *( ( volatile _IODEV unsigned * ) PATMOS_IO_I2C ) )
 
 // Default I2C address for the MPU-6050 is 0x68.
-// But only if the AD0 pin is low.
-// Some sensor boards have AD0 high, and the
-// I2C address thus becomes 0x69.
 #define MPU6050_I2C_ADDRESS 0x68
 
 //MCU6050 registers
@@ -65,20 +117,20 @@ const unsigned int CPU_PERIOD = 20; //CPU period in ns.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //PID gain and limit settings
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-float pid_p_gain_roll = 1.3;               //Gain setting for the pitch and roll P-controller (default = 1.3).
-float pid_i_gain_roll = 0.04;              //Gain setting for the pitch and roll I-controller (default = 0.04).
-float pid_d_gain_roll = 18.0;              //Gain setting for the pitch and roll D-controller (default = 18.0).
-int pid_max_roll = 400;                    //Maximum output of the PID-controller (+/-).
+const float pid_p_gain_roll = 0.43;               //Gain setting for the roll P-controller
+const float pid_i_gain_roll = 0.0005;             //Gain setting for the roll I-controller
+const float pid_d_gain_roll = 1.51;               //Gain setting for the roll D-controller
+int pid_max_roll = 400;                           //Maximum output of the PID-controller (+/-)
 
-float pid_p_gain_pitch = pid_p_gain_roll;  //Gain setting for the pitch P-controller.
-float pid_i_gain_pitch = pid_i_gain_roll;  //Gain setting for the pitch I-controller.
-float pid_d_gain_pitch = pid_d_gain_roll;  //Gain setting for the pitch D-controller.
-int pid_max_pitch = pid_max_roll;          //Maximum output of the PID-controller (+/-).
+const float pid_p_gain_pitch = pid_p_gain_roll;   //Gain setting for the pitch P-controller.
+const float pid_i_gain_pitch = pid_i_gain_roll;   //Gain setting for the pitch I-controller.
+const float pid_d_gain_pitch = pid_d_gain_roll;   //Gain setting for the pitch D-controller.
+int pid_max_pitch = 400;                          //Maximum output of the PID-controller (+/-)
 
-float pid_p_gain_yaw = 4.0;                //Gain setting for the pitch P-controller (default = 4.0).
-float pid_i_gain_yaw = 0.02;               //Gain setting for the pitch I-controller (default = 0.02).
-float pid_d_gain_yaw = 0.0;                //Gain setting for the pitch D-controller (default = 0.0).
-int pid_max_yaw = 400;                     //Maximum output of the PID-controller (+/-).
+const float pid_p_gain_yaw = 4;                   //Gain setting for the pitch P-controller. //4.0
+const float pid_i_gain_yaw = 0.002;               //Gain setting for the pitch I-controller. //0.02
+const float pid_d_gain_yaw = 0.0;                 //Gain setting for the pitch D-controller.
+int pid_max_yaw = 400;                            //Maximum output of the PID-controller (+/-)
 
 //During flight the battery voltage drops and the motors are spinning at a lower RPM. This has a negative effecct on the
 //altitude hold function. With the battery_compensation variable it's possible to compensate for the battery voltage drop.
@@ -116,7 +168,7 @@ float low_battery_warning = 10.5;          //Set the battery warning at 10.5V (d
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //int16_t = signed 16 bit integer
 //uint16_t = unsigned 16 bit integer
-
+int program_off=1;
 uint8_t last_channel_1, last_channel_2, last_channel_3, last_channel_4;
 uint8_t check_byte, flip32, start;
 uint8_t error, error_counter, error_led;
@@ -228,37 +280,42 @@ float adjustable_setting_1, adjustable_setting_2, adjustable_setting_3;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Setup routine
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//battery voltage read function(yet to be received from DTU)
 float batteryRead()
 {
   return *(BATTERY);
 }
 
+//writes pwm signlas of width=data to the esc
 void actuator_write(unsigned int actuator_id, unsigned int data)
 {
   *(MOTOR + actuator_id) = data;
 }
 
-//Reads from propulsion specified by propulsion ID (0 to 4)
+//get pulse width data from receiver
 int receiver_read(unsigned int receiver_id){
-  return *(RECEIVER + receiver_id);
+
   unsigned int clock_cycles_counted = *(RECEIVER + receiver_id);
   unsigned int pulse_high_time = (clock_cycles_counted * CPU_PERIOD) / 1000;
 
   return pulse_high_time;
 }
 
+//delay function ins microseconds
 void micros(int microseconds)
 {
   unsigned int timer_ms = (get_cpu_usecs());
   unsigned int loop_timer = timer_ms;
   while(timer_ms - loop_timer < microseconds)timer_ms = get_cpu_usecs();
 }
+
 void millis(int milliseconds)
 {
   unsigned int timer_ms = (get_cpu_usecs()/1000);
   unsigned int loop_timer = timer_ms;
   while(timer_ms - loop_timer < milliseconds)timer_ms = (get_cpu_usecs()/1000);
 }
+
 
 //Writes to i2c, returns -1 if there was an error, 0 if succeded
 int i2c_write(unsigned char chipaddress, unsigned char regaddress, unsigned char data)
@@ -298,36 +355,40 @@ void blink_once()
   return;
 }
 
+///1 to switch on LED and 0 to off
 void LED_out(int i){
   if(i==1) LED = 0x0001;
   else LED = 0x0000;
   return;
 }
 
-// interrupt handler
-void timer_setup(void) {
-  exc_prologue();
-
+// stores receiver values in an global array
+void intr_handler(void) {
   // read the receiver pwm duty cycle
   receiver_input[1] = receiver_read(0);
   receiver_input[2] = receiver_read(1);
   receiver_input[3] = receiver_read(2);
   receiver_input[4] = receiver_read(3);
-
-  exc_epilogue();
 }
 
 void set_gyro_registers()
 {
-  //Setup the MPU-6050
+  //Setup the MPU-6050 registers
   while(i2c_write(MPU6050_I2C_ADDRESS, MPU6050_PWR_MGMT_1, 0x00));                    //Set the register bits as 00000000 to activate the gyro
   while(i2c_write(MPU6050_I2C_ADDRESS, MPU6050_GYRO_CONFIG, 0x08));                   //Set the register bits as 00001000 (500dps full scale)
   while(i2c_write(MPU6050_I2C_ADDRESS, MPU6050_ACCEL_CONFIG, 0x10));                  //Set the register bits as 00010000 (+/- 8g full scale range)
   while(i2c_write(MPU6050_I2C_ADDRESS, MPU6050_CONFIG_REG, 0x03));                    //Set the register bits as 00000011 (Set Digital Low Pass Filter to ~43Hz)
+
 }
 
 void gyro_signalen()
 {
+
+  receiver_input_channel_1 = convert_receiver_channel(1);                 //Convert the actual receiver signals for roll to the standard 1000 - 2000us.
+  receiver_input_channel_2 = convert_receiver_channel(2);                 //Convert the actual receiver signals for pitch to the standard 1000 - 2000us.
+  receiver_input_channel_3 = convert_receiver_channel(3);                 //Convert the actual receiver signals for throttle to the standard 1000 - 2000us.
+  receiver_input_channel_4 = convert_receiver_channel(4);                 //Convert the actual receiver signals for yaw to the standard 1000 - 2000us.
+
   //Read the MPU-6050
   ACCEL_X_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_ACCEL_XOUT_H);
   ACCEL_X_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_ACCEL_XOUT_L);
@@ -335,8 +396,8 @@ void gyro_signalen()
   ACCEL_Y_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_ACCEL_YOUT_L);
   ACCEL_Z_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_ACCEL_ZOUT_H);
   ACCEL_Z_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_ACCEL_ZOUT_L);
-  TEMP_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_TEMP_OUT_L);
   TEMP_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_TEMP_OUT_H);
+  TEMP_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_TEMP_OUT_L);
   GYRO_X_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_GYRO_XOUT_H);
   GYRO_X_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_GYRO_XOUT_L);
   GYRO_Y_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_GYRO_YOUT_H);
@@ -344,57 +405,41 @@ void gyro_signalen()
   GYRO_Z_H = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_GYRO_ZOUT_H);
   GYRO_Z_L = i2c_read(MPU6050_I2C_ADDRESS, MPU6050_GYRO_ZOUT_L);
 
-  acc_axis[1] = (ACCEL_X_H<<8|ACCEL_X_L);                    //Add the low and high byte to the acc_x variable.
-  acc_axis[2] = (ACCEL_Y_H<<8|ACCEL_Y_L);                  //Add the low and high byte to the acc_y variable.
-  acc_axis[3] = (ACCEL_Z_H<<8|ACCEL_Z_L);                    //Add the low and high byte to the acc_z variable.
-  temperature = (TEMP_H<<8|TEMP_L);                    //Add the low and high byte to the temperature variable.
-  gyro_axis[1] = (GYRO_X_H<<8|GYRO_X_L);                   //Read high and low part of the angular data.
-  gyro_axis[2] = (GYRO_Y_H<<8|GYRO_Y_L);                   //Read high and low part of the angular data.
-  gyro_axis[3] = (GYRO_Z_H<<8|GYRO_Z_L);                   //Read high and low part of the angular data.
+  acc_axis[1] = (ACCEL_X_H<<8|ACCEL_X_L);                                 //Add the low and high byte to the acc_x variable.
+  acc_axis[2] = (ACCEL_Y_H<<8|ACCEL_Y_L);                                 //Add the low and high byte to the acc_y variable.
+  acc_axis[3] = (ACCEL_Z_H<<8|ACCEL_Z_L);                                 //Add the low and high byte to the acc_z variable.
+  temperature = (TEMP_H<<8|TEMP_L);                                       //Add the low and high byte to the temperature variable.
+  gyro_axis[1] = (GYRO_X_H<<8|GYRO_X_L);                                  //Read high and low part of the angular data.
+  gyro_axis[2] = (GYRO_Y_H<<8|GYRO_Y_L);                                  //Read high and low part of the angular data.
+  gyro_axis[3] = (GYRO_Z_H<<8|GYRO_Z_L);                                  //Read high and low part of the angular data.
 
   if(cal_int == 2000)
   {
-    gyro_axis[1] -= gyro_axis_cal[1];                            //Only compensate after the calibration.
-    gyro_axis[2] -= gyro_axis_cal[2];                            //Only compensate after the calibration.
-    gyro_axis[3] -= gyro_axis_cal[3];                            //Only compensate after the calibration.
+    gyro_axis[1] -= gyro_axis_cal[1];                                     //Only compensate after the calibration.
+    gyro_axis[2] -= gyro_axis_cal[2];                                     //Only compensate after the calibration.
+    gyro_axis[3] -= gyro_axis_cal[3];                                     //Only compensate after the calibration.
   }
+  gyro_roll = gyro_axis[1];                                               //Set gyro_roll to the correct axis.
+  gyro_pitch = gyro_axis[2];                                              //Set gyro_pitch to the correct axis.
+  gyro_pitch *= -1;                                                       //Invert gyro_pitch to change the axis of sensor data.
+  gyro_yaw = gyro_axis[3];                                                //Set gyro_yaw to the correct axis.
+  gyro_yaw *= -1;                                                         //Invert gyro_yaw to change the axis of sensor data.
+
+
+  acc_x = acc_axis[2];                                                    //Set acc_x to the correct axis.
+  acc_x *= -1;                                                            //Invert acc_x.
+  acc_y = acc_axis[1];                                                    //Set acc_y to the correct axis.
+  acc_z = acc_axis[3];                                                    //Set acc_z to the correct axis.
+  acc_z *= -1;                                                            //Invert acc_z.
+
 }
 
 int main(int argc, char **argv)
 {
 
-  timer_setup();                                                //Setup the timers for the receiver inputs and ESC's output.
+  intr_handler();                                                //Setup the timers for the receiver inputs and ESC's output.
 
-  // gps_setup();                                                  //Set the baud rate and output refreshrate of the GPS module.
-
-  //Check if the MPU-6050 is responding.
-  // HWire.begin();                                                //Start the I2C as master
-  // HWire.beginTransmission(gyro_address);                        //Start communication with the MPU-6050.
-  // error = HWire.endTransmission();                              //End the transmission and register the exit status.
-  // while (error != 0) {                                          //Stay in this loop because the MPU-6050 did not responde.
-  //   error = 1;                                                  //Set the error status to 1.
-  //   error_signal();                                             //Show the error via the red LED.
-  //   delay(4);                                                   //Simulate a 250Hz refresch rate as like the main loop.
-  // }
-
-  //Check if the compass is responding.
-  // HWire.beginTransmission(compass_address);                     //Start communication with the HMC5883L.
-  // error = HWire.endTransmission();                              //End the transmission and register the exit status.
-  // while (error != 0) {                                          //Stay in this loop because the HMC5883L did not responde.
-  //   error = 2;                                                  //Set the error status to 2.
-  //   error_signal();                                             //Show the error via the red LED.
-  //   delay(4);                                                   //Simulate a 250Hz refresch rate as like the main loop.
-  // }
-
-  // //Check if the MS5611 barometer is responding.
-  // HWire.beginTransmission(MS5611_address);                      //Start communication with the MS5611.
-  // error = HWire.endTransmission();                              //End the transmission and register the exit status.
-  // while (error != 0) {                                          //Stay in this loop because the MS5611 did not responde.
-  //   error = 3;                                                  //Set the error status to 2.
-  //   error_signal();                                             //Show the error via the red LED.
-  //   delay(4);                                                   //Simulate a 250Hz refresch rate as like the main loop.
-  // }
-
+  gps_setup();                                                  //Set the baud rate and output refreshrate of the GPS module.
   gyro_setup();                                                 //Initiallize the gyro and set the correct registers.
   setup_compass();                                              //Initiallize the compass and set the correct registers.
   read_compass();                                               //Read and calculate the compass data.
@@ -408,7 +453,8 @@ int main(int argc, char **argv)
     millis(4);                                                   //Simulate a 250Hz refresch rate as like the main loop.
   }
   count_var = 0;                                                //Set start back to 0.
-  calibrate_gyro();                                             //Calibrate the gyro offset.
+  
+  if(GYRO_CALLIB)calibrate_gyro();                                             //Calibrate the gyro offset.
 
   //Wait until the receiver is active.
   while (channel_1 < 990 || channel_2 < 990 || channel_3 < 990 || channel_4 < 990)  {
@@ -428,7 +474,10 @@ int main(int argc, char **argv)
   //analogRead => 0 = 0V ..... 4095 = 36.3V
   //36.3 / 4095 = 112.81.
   //The variable battery_voltage holds 1050 if the battery voltage is 10.5V.
-  battery_voltage = (float)batteryRead() / 112.81;
+  if(battery_voltage_available==1)
+  {
+    battery_voltage = (float)batteryRead() / 112.81;
+  }
 
   //For calculating the pressure the 6 calibration values need to be polled from the MS5611.
   //These 2 byte values are stored in the memory location 0xA2 and up.
@@ -467,7 +516,15 @@ int main(int argc, char **argv)
 //Main program loop
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   for (int j=0;j<10;j++)
+  { 
+    intr_handler();
+
+        //Stopping the code: throttle low and yaw right, roll left and pitch down
+    if(receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1950 && receiver_input_channel_1 < 1050 && receiver_input_channel_2 > 1950)
     {
+      program_off = -1;
+    }
+
     if(receiver_watchdog < 750)receiver_watchdog ++;
     if(receiver_watchdog == 750 && start == 2){
       channel_1 = 1500;
@@ -543,15 +600,15 @@ int main(int argc, char **argv)
 
     //Gyro angle calculations
     //0.0000611 = 1 / (250Hz / 65.5)
-    angle_pitch += (float)gyro_pitch * 0.0000611;                                    //Calculate the traveled pitch angle and add this to the angle_pitch variable.
-    angle_roll += (float)gyro_roll * 0.0000611;                                      //Calculate the traveled roll angle and add this to the angle_roll variable.
-    angle_yaw += (float)gyro_yaw * 0.0000611;                                        //Calculate the traveled yaw angle and add this to the angle_yaw variable.
+    angle_pitch += (gyro_pitch / 65.5)*dt;                                     //Calculate the traveled pitch angle and add this to the angle_pitch variable.
+    angle_roll += (gyro_roll / 65.5)*dt;                                       //Calculate the traveled roll angle and add this to the angle_roll variable.
+    angle_yaw +=  (gyro_yaw / 65.5)*dt;                                        //Calculate the traveled yaw angle and add this to the angle_yaw variable.
     if (angle_yaw < 0) angle_yaw += 360;                                             //If the compass heading becomes smaller then 0, 360 is added to keep it in the 0 till 360 degrees range.
     else if (angle_yaw >= 360) angle_yaw -= 360;                                     //If the compass heading becomes larger then 360, 360 is subtracted to keep it in the 0 till 360 degrees range.
 
     //0.000001066 = 0.0000611 * (3.142(PI) / 180degr) The Arduino sin function is in radians and not degrees.
-    angle_pitch -= angle_roll * sin((float)gyro_yaw * 0.000001066);                  //If the IMU has yawed transfer the roll angle to the pitch angel.
-    angle_roll += angle_pitch * sin((float)gyro_yaw * 0.000001066);                  //If the IMU has yawed transfer the pitch angle to the roll angel.
+    angle_pitch -= angle_roll * sin(gyro_yaw * (dt/65.5)*(3.142/180));         //If the IMU has yawed transfer the roll angle to the pitch angel.
+    angle_roll += angle_pitch * sin(gyro_yaw * (dt/65.5)*(3.142/180));         //If the IMU has yawed transfer the pitch angle to the roll angel.
 
     angle_yaw -= course_deviation(angle_yaw, actual_compass_heading) / 1200.0;       //Calculate the difference between the gyro and compass heading and make a small correction.
     if (angle_yaw < 0) angle_yaw += 360;                                             //If the compass heading becomes smaller then 0, 360 is added to keep it in the 0 till 360 degrees range.
@@ -559,20 +616,39 @@ int main(int argc, char **argv)
 
 
     //Accelerometer angle calculations
-    acc_total_vector = sqrt((acc_x * acc_x) + (acc_y * acc_y) + (acc_z * acc_z));    //Calculate the total accelerometer vector.
+    acc_total_vector = sqrt((acc_x*acc_x)+(acc_y*acc_y)+(acc_z*acc_z));        //Calculate the total accelerometer vector.
 
-    if (abs(acc_y) < acc_total_vector) {                                             //Prevent the asin function to produce a NaN.
-      angle_pitch_acc = asin((float)acc_y / acc_total_vector) * 57.296;              //Calculate the pitch angle.
+
+    //57.296 = 1 / (3.142 / 180) The Arduino asin function is in radians
+    if(abs(acc_y) < acc_total_vector){                                         //Prevent the asin function to produce a NaN
+      angle_pitch_acc = asin(acc_y/acc_total_vector)* 57.296;                  //Calculate the pitch angle.
     }
-    if (abs(acc_x) < acc_total_vector) {                                             //Prevent the asin function to produce a NaN.
-      angle_roll_acc = asin((float)acc_x / acc_total_vector) * 57.296;               //Calculate the roll angle.
+    if(abs(acc_x) < acc_total_vector){                                         //Prevent the asin function to produce a NaN
+      angle_roll_acc = asin(acc_x/acc_total_vector)* -57.296;                  //Calculate the roll angle.
     }
 
-    angle_pitch = angle_pitch * 0.9996 + angle_pitch_acc * 0.0004;                   //Correct the drift of the gyro pitch angle with the accelerometer pitch angle.
-    angle_roll = angle_roll * 0.9996 + angle_roll_acc * 0.0004;                      //Correct the drift of the gyro roll angle with the accelerometer roll angle.
+        if(first_time)
+    {
+      pitch_offset = -angle_pitch_acc;                                         //start the pitch angle from 0 without any offsets
+      roll_offset = -angle_roll_acc;                                           //start the roll angle from 0 without any offsets
+    }
 
-    pitch_level_adjust = angle_pitch * 15;                                           //Calculate the pitch angle correction.
-    roll_level_adjust = angle_roll * 15;                                             //Calculate the roll angle correction.
+    angle_pitch_acc += pitch_offset;                                           //Accelerometer calibration value for pitch.
+    angle_roll_acc += roll_offset;                                             //Accelerometer calibration value for roll.
+
+    if( (int)angle_pitch_acc==0 && (int)angle_roll_acc==0)
+    {
+      acc_count++;
+    }
+    else acc_count=0;
+
+    if(acc_count==20)first_time=0;    
+
+    angle_pitch = angle_pitch * 0.98 + angle_pitch_acc * 0.02;                   //Correct the drift of the gyro pitch angle with the accelerometer pitch angle.
+    angle_roll = angle_roll * 0.98 + angle_roll_acc * 0.02;                      //Correct the drift of the gyro roll angle with the accelerometer roll angle.
+
+    pitch_level_adjust = angle_pitch;                                           //Calculate the pitch angle correction.
+    roll_level_adjust = angle_roll;                                             //Calculate the roll angle correction.
 
     vertical_acceleration_calculations();                                            //Calculate the vertical accelration.
 
@@ -612,12 +688,14 @@ int main(int argc, char **argv)
     //The battery voltage is needed for compensation.
     //A complementary filter is used to reduce noise.
     //1410.1 = 112.81 / 0.08.
-    battery_voltage = battery_voltage * 0.92 + ((float)analogRead(4) / 1410.1);
+    if(battery_voltage_available)
+    {
+      battery_voltage = battery_voltage * 0.92 + ((float)analogRead(4) / 1410.1);
 
     //Turn on the led if battery voltage is to low. Default setting is 10.5V
-    if (battery_voltage > 6.0 && battery_voltage < low_battery_warning && error == 0)error = 1;
+      if (battery_voltage > 6.0 && battery_voltage < low_battery_warning && error == 0)error = 1;
 
-
+    }
     //The variable base_throttle is calculated in the following part. It forms the base throttle for every motor.
     if (takeoff_detected == 1 && start == 2) {                                         //If the quadcopter is started and flying.
       throttle = channel_3 + takeoff_throttle;                                         //The base throttle is the receiver throttle channel + the detected take-off throttle.
@@ -638,11 +716,14 @@ int main(int argc, char **argv)
       esc_3 = throttle + pid_output_pitch - pid_output_roll - pid_output_yaw;        //Calculate the pulse for esc 3 (rear-left - CCW).
       esc_4 = throttle - pid_output_pitch - pid_output_roll + pid_output_yaw;        //Calculate the pulse for esc 4 (front-left - CW).
 
-      if (battery_voltage < 12.40 && battery_voltage > 6.0) {                        //Is the battery connected?
-        esc_1 += (12.40 - battery_voltage) * battery_compensation;                   //Compensate the esc-1 pulse for voltage drop.
-        esc_2 += (12.40 - battery_voltage) * battery_compensation;                   //Compensate the esc-2 pulse for voltage drop.
-        esc_3 += (12.40 - battery_voltage) * battery_compensation;                   //Compensate the esc-3 pulse for voltage drop.
-        esc_4 += (12.40 - battery_voltage) * battery_compensation;                   //Compensate the esc-4 pulse for voltage drop.
+      if(battery_voltage_available==1)
+      { 
+        if (battery_voltage < 12.40 && battery_voltage > 6.0) {                        //Is the battery connected?
+          esc_1 += (12.40 - battery_voltage) * battery_compensation;                   //Compensate the esc-1 pulse for voltage drop.
+          esc_2 += (12.40 - battery_voltage) * battery_compensation;                   //Compensate the esc-2 pulse for voltage drop.
+          esc_3 += (12.40 - battery_voltage) * battery_compensation;                   //Compensate the esc-3 pulse for voltage drop.
+          esc_4 += (12.40 - battery_voltage) * battery_compensation;                   //Compensate the esc-4 pulse for voltage drop.
+        }
       }
 
       if (esc_1 < motor_idle_speed) esc_1 = motor_idle_speed;                        //Keep the motors running.
@@ -664,14 +745,10 @@ int main(int argc, char **argv)
     }
 
 
-    TIMER4_BASE->CCR1 = esc_1;                                                       //Set the throttle receiver input pulse to the ESC 1 output pulse.
-    TIMER4_BASE->CCR2 = esc_2;                                                       //Set the throttle receiver input pulse to the ESC 2 output pulse.
-    TIMER4_BASE->CCR3 = esc_3;                                                       //Set the throttle receiver input pulse to the ESC 3 output pulse.
-    TIMER4_BASE->CCR4 = esc_4;                                                       //Set the throttle receiver input pulse to the ESC 4 output pulse.
-    TIMER4_BASE->CNT = 5000;                                                         //This will reset timer 4 and the ESC pulses are directly created.
-
-    send_telemetry_data();                                                           //Send telemetry data to the ground station.
-
+    actuator_write(m1, 1000);                                                 //give motors 1000us pulse.
+    actuator_write(m2, 1000);
+    actuator_write(m3, 1000);
+    actuator_write(m4, 1000);
     //! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
     //Because of the angle calculation the loop time is getting very important. If the loop time is
     //longer or shorter than 4000us the angle calculation is off. If you modify the code make sure
@@ -679,9 +756,12 @@ int main(int argc, char **argv)
     //the Q&A page:
     //! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
 
-    if (micros() - loop_timer > 4050)error = 2;                                      //Output an error if the loop time exceeds 4050us.
-    while (micros() - loop_timer < 4000);                                            //We wait until 4000us are passed.
-    loop_timer = micros();                                                           //Set the timer for the next loop.
+    if (micros() - loop_timer > 20050)error = 2;                                      //Output an error if the loop time exceeds 4050us.
+    while (micros() - loop_timer < 20000);                                            //We wait until 4000us are passed.
+    loop_timer = get_cpu_usecs();                                                           //Set the timer for the next loop.
+  
+    if(program_off==-1)break;                                                       //used to stop the code to reupload the program
+
   }
   return 0;
 }
