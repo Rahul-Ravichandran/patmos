@@ -434,6 +434,38 @@ void gyro_signalen()
 
 }
 
+void change_settings(void) {
+  adjustable_setting_1 = variable_1_to_adjust;
+  adjustable_setting_2 = variable_2_to_adjust;
+  adjustable_setting_3 = variable_3_to_adjust;
+
+  for (error = 0; error < 150; error ++) {
+    delay(20);
+  }
+  error = 0;
+
+  while (channel_6 >= 1900) {
+    micros(3700);
+    if (channel_1 > 1550)adjustable_setting_1 += (float)(channel_1 - 1550) * 0.000001;
+    if (channel_1 < 1450)adjustable_setting_1 -= (float)(1450 - channel_1) * 0.000001;
+    if (adjustable_setting_1 < 0)adjustable_setting_1 = 0;
+    variable_1_to_adjust = adjustable_setting_1;
+    
+    if (channel_2 > 1550)adjustable_setting_2 += (float)(channel_2 - 1550) * 0.000001;
+    if (channel_2 < 1450)adjustable_setting_2 -= (float)(1450 - channel_2) * 0.000001;
+    if (adjustable_setting_2 < 0)adjustable_setting_2 = 0;
+    variable_2_to_adjust = adjustable_setting_2;
+
+    if (channel_4 > 1550)adjustable_setting_3 += (float)(channel_4 - 1550) * 0.000001;
+    if (channel_4 < 1450)adjustable_setting_3 -= (float)(1450 - channel_4) * 0.000001;
+    if (adjustable_setting_3 < 0)adjustable_setting_3 = 0;
+    variable_3_to_adjust = adjustable_setting_3;
+  }
+  loop_timer = get_cpu_usecset();                                                           //Set the timer for the next loop.
+}
+
+
+
 int main(int argc, char **argv)
 {
 
@@ -482,12 +514,7 @@ int main(int argc, char **argv)
   //For calculating the pressure the 6 calibration values need to be polled from the MS5611.
   //These 2 byte values are stored in the memory location 0xA2 and up.
   for (start = 1; start <= 6; start++) {
-    HWire.beginTransmission(MS5611_address);                    //Start communication with the MPU-6050.
-    HWire.write(0xA0 + start * 2);                              //Send the address that we want to read.
-    HWire.endTransmission();                                    //End the transmission.
-
-    HWire.requestFrom(MS5611_address, 2);                       //Request 2 bytes from the MS5611.
-    C[start] = HWire.read() << 8 | HWire.read();                //Add the low and high byte to the C[x] calibration variable.
+    C[start] = i2c_read(MS5611_address, 0xA0 + i*2) << 8 | i2c_read(MS5611_address, 0xA0 + i*2 +1);                //Add the low and high byte to the C[x] calibration variable.
   }
 
   OFF_C2 = C[2] * pow(2, 16);                                   //This value is pre-calculated to offload the main program loop.
@@ -496,7 +523,7 @@ int main(int argc, char **argv)
   //The MS5611 needs a few readings to stabilize.
   for (start = 0; start < 100; start++) {                       //This loop runs 100 times.
     read_barometer();                                           //Read and calculate the barometer data.
-    delay(4);                                                   //The main program loop also runs 250Hz (4ms per loop).
+    millis(4);                                                   //The main program loop also runs 250Hz (4ms per loop).
   }
   actual_pressure = 0;                                          //Reset the pressure calculations.
 
