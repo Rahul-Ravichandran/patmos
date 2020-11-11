@@ -30,23 +30,7 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7db77ad2-8cdb-421c-b282-7546849bff00" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/Flight_conteroller_v2.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/basic_lib/actuator_receiver.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/basic_lib/i2c.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/basic_lib/led.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/basic_lib/timer.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/basic_lib/uart.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/gyro/gyro.c" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/gyro/gyro.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/pid/pid.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/safety/led_signal.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/safety/return_to_home.h" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/safety/start_stop_takeoff.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/Flight_controller_v2.c" beforeDir="false" afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/Flight_controller_v2.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/gps/read_gps.c" beforeDir="false" afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/gps/read_gps.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/gps/read_gps.h" beforeDir="false" afterPath="$PROJECT_DIR$/c/apps/de10-IMU/Autonoumous FC/gps/read_gps.h" afterDir="false" />
-    </list>
+    <list default="true" id="7db77ad2-8cdb-421c-b282-7546849bff00" name="Default Changelist" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -100,7 +84,7 @@
       <option name="presentableId" value="Default" />
       <updated>1604391082179</updated>
       <workItem from="1604391083259" duration="173000" />
-      <workItem from="1604832197040" duration="7083000" />
+      <workItem from="1604832197040" duration="7145000" />
     </task>
     <servers />
   </component>
