@@ -1,4 +1,4 @@
-MAIN?=esc_callibrate
+MAIN?=Flight_controller_v2
 #MAIN?=blinking
 
 # This is the trivial Hello World example, distributed over two .c files
@@ -9,7 +9,7 @@ LDFLAGS?= \
         -Xgold --defsym -Xgold __heap_end=0x070000
 
 all:
-	patmos-clang -I ../.. -O2 $(LDFLAGS) $(MAIN).c -o de10-IMU.elf -lm
-	patmos-clang -I ../.. -O2 $(LDFLAGS) $(MAIN).c -o ~/t-crest/patmos/tmp/de10-IMU.elf -lm
+	patmos-clang -I ../.. -O2 $(LDFLAGS) gps/gps.c $(MAIN).c -o Autonomous_FC.elf -lm
+	patmos-clang -I ../.. -O2 $(LDFLAGS) gps/gps.c $(MAIN).c -o ~/t-crest/patmos/tmp/Autonomous_FC.elf -lm
 # 	patmos-clang -o  de10-IMU.elf $(MAIN).c -lm 
 

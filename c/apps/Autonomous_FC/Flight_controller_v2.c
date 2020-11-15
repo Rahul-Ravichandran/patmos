@@ -1,5 +1,12 @@
 #include "Flight_conteroller_v2.h"
-
+#include "gps/read_gps.h"
+#include "gyro/gyro.h"
+#include "basic_lib/actuator_receiver.h"
+#include "pid/pid.h"
+#include "safety/return_to_home.h"
+#include "safety/led_signal.h"
+#include "safety/start_stop_takeoff.h"
+#include "callibration/callibration.h"
 ///PREDICT PROJECT FLIGHT CONTROLLER
 //this code is for autonomous flight controller
 // This code callibrates the IMU before start and stabilizes the drone using the RPY values from IMU. 
@@ -67,7 +74,7 @@ void change_settings(void) {
   adjustable_setting_3 = variable_3_to_adjust;
 
   for (error = 0; error < 150; error ++) {
-    delay(20);
+    millis(20);
   }
   error = 0;
 
@@ -88,7 +95,7 @@ void change_settings(void) {
     if (adjustable_setting_3 < 0)adjustable_setting_3 = 0;
     variable_3_to_adjust = adjustable_setting_3;
   }
-  loop_timer = get_cpu_usecset();                                                           //Set the timer for the next loop.
+  loop_timer = get_cpu_usecs();                                                           //Set the timer for the next loop.
 }
 
 
@@ -115,7 +122,7 @@ int main(int argc, char **argv)
   }
   count_var = 0;                                                //Set start back to 0.
   
-  if(GYRO_CALLIB)calibrate_gyro();                                             //Calibrate the gyro offset.
+  if(GYRO_CALLIB)callibrate_gyro();                                             //Calibrate the gyro offset.
 
   //Wait until the receiver is active.
   while (channel_1 < 990 || channel_2 < 990 || channel_3 < 990 || channel_4 < 990)  {
@@ -176,7 +183,7 @@ int main(int argc, char **argv)
     intr_handler();
 
         //Stopping the code: throttle low and yaw right, roll left and pitch down
-    if(receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1950 && receiver_input_channel_1 < 1050 && receiver_input_channel_2 > 1950)
+    if(channel_3 < 1050 && channel_4 > 1950 && channel_1 < 1050 && channel_2 > 1950)
     {
       program_off = -1;
     }
@@ -197,15 +204,15 @@ int main(int argc, char **argv)
     //Some functions are only accessible when the quadcopter is off.
     if (start == 0) {
       //For compass calibration move both sticks to the top right.
-      if (channel_1 > 1900 && channel_2 < 1100 && channel_3 > 1900 && channel_4 > 1900)calibrate_compass();
+      // if (channel_1 > 1900 && channel_2 < 1100 && channel_3 > 1900 && channel_4 > 1900)callibrate_compass();
       //Level calibration move both sticks to the top left.
-      if (channel_1 < 1100 && channel_2 < 1100 && channel_3 > 1900 && channel_4 < 1100)calibrate_level();
+      if (channel_1 < 1100 && channel_2 < 1100 && channel_3 > 1900 && channel_4 < 1100)callibrate_level();
       //Change settings
       if (channel_6 >= 1900 && previous_channel_6 == 0) {
         previous_channel_6 = 1;
-        if (setting_adjust_timer > millis())setting_click_counter ++;
+        if (setting_adjust_timer > get_cpu_usecs()/1000)setting_click_counter ++;
         else setting_click_counter = 0;
-        setting_adjust_timer = millis() + 1000;
+        setting_adjust_timer = get_cpu_usecs()/1000 + 1000;
         if (setting_click_counter > 3) {
           setting_click_counter = 0;
           change_settings();
@@ -267,7 +274,8 @@ int main(int argc, char **argv)
     angle_pitch -= angle_roll * sin(gyro_yaw * (dt/65.5)*(3.142/180));         //If the IMU has yawed transfer the roll angle to the pitch angel.
     angle_roll += angle_pitch * sin(gyro_yaw * (dt/65.5)*(3.142/180));         //If the IMU has yawed transfer the pitch angle to the roll angel.
 
-    angle_yaw -= course_deviation(angle_yaw, actual_compass_heading) / 1200.0;       //Calculate the difference between the gyro and compass heading and make a small correction.
+    // angle_yaw -= course_deviation(angle_yaw, actual_compass_heading) / 1200.0;       //Calculate the difference between the gyro and compass heading and make a small correction.
+    angle_yaw =0;//since there is no compass
     if (angle_yaw < 0) angle_yaw += 360;                                             //If the compass heading becomes smaller then 0, 360 is added to keep it in the 0 till 360 degrees range.
     else if (angle_yaw >= 360) angle_yaw -= 360;                                     //If the compass heading becomes larger then 360, 360 is subtracted to keep it in the 0 till 360 degrees range.
 
@@ -317,7 +325,8 @@ int main(int argc, char **argv)
     //First the course deviation is calculated between the current heading and the course_lock_heading.
     //Based on this deviation the pitch and roll controls are calculated so the responce is the same as on startup.
     if (heading_lock == 1) {
-      heading_lock_course_deviation = course_deviation(angle_yaw, course_lock_heading);
+      // heading_lock_course_deviation = course_deviation(angle_yaw, course_lock_heading);
+      heading_lock_course_deviation = 0;//since there is no compass
       channel_1_base = 1500 + ((float)(channel_1 - 1500) * cos(heading_lock_course_deviation * 0.017453)) + ((float)(channel_2 - 1500) * cos((heading_lock_course_deviation - 90) * 0.017453));
       channel_2_base = 1500 + ((float)(channel_2 - 1500) * cos(heading_lock_course_deviation * 0.017453)) + ((float)(channel_1 - 1500) * cos((heading_lock_course_deviation + 90) * 0.017453));
       gps_man_adjust_heading = course_lock_heading;
@@ -347,7 +356,7 @@ int main(int argc, char **argv)
     //1410.1 = 112.81 / 0.08.
     if(battery_voltage_available)
     {
-      battery_voltage = battery_voltage * 0.92 + ((float)analogRead(4) / 1410.1);
+      battery_voltage = battery_voltage * 0.92 + batteryRead() / 1410.1;
 
     //Turn on the led if battery voltage is to low. Default setting is 10.5V
       if (battery_voltage > 6.0 && battery_voltage < low_battery_warning && error == 0)error = 1;
@@ -413,8 +422,8 @@ int main(int argc, char **argv)
     //the Q&A page:
     //! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
 
-    if (micros() - loop_timer > 20050)error = 2;                                      //Output an error if the loop time exceeds 4050us.
-    while (micros() - loop_timer < 20000);                                            //We wait until 4000us are passed.
+    if (get_cpu_usecs() - loop_timer > 20050)error = 2;                                      //Output an error if the loop time exceeds 4050us.
+    while (get_cpu_usecs() - loop_timer < 20000);                                            //We wait until 4000us are passed.
     loop_timer = get_cpu_usecs();                                                           //Set the timer for the next loop.
   
     if(program_off==-1)break;                                                       //used to stop the code to reupload the program
