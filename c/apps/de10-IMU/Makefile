@@ -1,4 +1,4 @@
-MAIN?=esc_callibrate
+MAIN?=baro_test
 #MAIN?=blinking
 
 # This is the trivial Hello World example, distributed over two .c files
@@ -9,7 +9,7 @@ LDFLAGS?= \
         -Xgold --defsym -Xgold __heap_end=0x070000
 
 all:
-	patmos-clang -I ../.. -O2 $(LDFLAGS) $(MAIN).c -o de10-IMU.elf -lm
-	patmos-clang -I ../.. -O2 $(LDFLAGS) $(MAIN).c -o ~/t-crest/patmos/tmp/de10-IMU.elf -lm
+	patmos-clang -I ../.. -O2 $(LDFLAGS) i2c_master.c $(MAIN).c -o de10-IMU.elf -lm
+	patmos-clang -I ../.. -O2 $(LDFLAGS) i2c_master.c $(MAIN).c -o ~/t-crest/patmos/tmp/de10-IMU.elf -lm
 # 	patmos-clang -o  de10-IMU.elf $(MAIN).c -lm 
 
