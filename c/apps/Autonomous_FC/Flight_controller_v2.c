@@ -7,6 +7,7 @@
 #include "safety/led_signal.h"
 #include "safety/start_stop_takeoff.h"
 #include "callibration/callibration.h"
+#include "basic_lib/analog_read.h"
 ///PREDICT PROJECT FLIGHT CONTROLLER
 //this code is for autonomous flight controller
 // This code callibrates the IMU before start and stabilizes the drone using the RPY values from IMU. 
@@ -49,56 +50,6 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Setup routine
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//battery voltage read function(yet to be received from DTU)
-float batteryRead()
-{
-  return *(BATTERY);
-}
-
-// stores receiver values in an global array
-void intr_handler(void) {
-    // read the receiver pwm duty cycle
-    channel_1 = receiver_read(0);
-    channel_2 = receiver_read(1);
-    channel_3 = receiver_read(2);
-    channel_4 = receiver_read(3);
-    channel_5 = receiver_read(4);
-    channel_6 = receiver_read(5);
-}
-
-
-
-void change_settings(void) {
-  adjustable_setting_1 = variable_1_to_adjust;
-  adjustable_setting_2 = variable_2_to_adjust;
-  adjustable_setting_3 = variable_3_to_adjust;
-
-  for (error = 0; error < 150; error ++) {
-    millis(20);
-  }
-  error = 0;
-
-  while (channel_6 >= 1900) {
-    micros(3700);
-    if (channel_1 > 1550)adjustable_setting_1 += (float)(channel_1 - 1550) * 0.000001;
-    if (channel_1 < 1450)adjustable_setting_1 -= (float)(1450 - channel_1) * 0.000001;
-    if (adjustable_setting_1 < 0)adjustable_setting_1 = 0;
-    variable_1_to_adjust = adjustable_setting_1;
-    
-    if (channel_2 > 1550)adjustable_setting_2 += (float)(channel_2 - 1550) * 0.000001;
-    if (channel_2 < 1450)adjustable_setting_2 -= (float)(1450 - channel_2) * 0.000001;
-    if (adjustable_setting_2 < 0)adjustable_setting_2 = 0;
-    variable_2_to_adjust = adjustable_setting_2;
-
-    if (channel_4 > 1550)adjustable_setting_3 += (float)(channel_4 - 1550) * 0.000001;
-    if (channel_4 < 1450)adjustable_setting_3 -= (float)(1450 - channel_4) * 0.000001;
-    if (adjustable_setting_3 < 0)adjustable_setting_3 = 0;
-    variable_3_to_adjust = adjustable_setting_3;
-  }
-  loop_timer = get_cpu_usecs();                                                           //Set the timer for the next loop.
-}
-
-
 
 int main(int argc, char **argv)
 {

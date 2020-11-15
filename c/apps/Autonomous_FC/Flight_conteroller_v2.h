@@ -39,9 +39,6 @@
 //m3/          \m2
 
 
-//battery voltage read register
-#define BATTERY ( ( volatile _IODEV unsigned * )  PATMOS_IO_AUDIO )
-
 
 #define BARO_REG                   0xA0   // R
 
