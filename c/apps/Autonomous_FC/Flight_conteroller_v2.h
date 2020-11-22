@@ -39,9 +39,6 @@
 //m3/          \m2
 
 
-
-#define BARO_REG                   0xA0   // R
-
 #define STM32_board_LED PC13               //Change PC13 if the LED on the STM32 is connected to another output.
 
 //Tuning parameters/settings is explained in this video: https://youtu.be/ys-YpOaA2ME
@@ -214,19 +211,5 @@ __uint16_t setting_click_counter;
 __uint8_t previous_channel_6;
 float adjustable_setting_1, adjustable_setting_2, adjustable_setting_3;
 
-unsigned int ACCEL_X_H = 0;
-unsigned int ACCEL_X_L = 0;
-unsigned int ACCEL_Y_H = 0;
-unsigned int ACCEL_Y_L = 0;
-unsigned int ACCEL_Z_H = 0;
-unsigned int ACCEL_Z_L = 0;
-unsigned int TEMP_L = 0;
-unsigned int TEMP_H = 0;
-unsigned int GYRO_X_H = 0;
-unsigned int GYRO_X_L = 0;
-unsigned int GYRO_Y_H = 0;
-unsigned int GYRO_Y_L = 0;
-unsigned int GYRO_Z_H = 0;
-unsigned int GYRO_Z_L = 0;
 
 #endif //PATMOS_FLIGHT_CONTEROLLER_V2_H

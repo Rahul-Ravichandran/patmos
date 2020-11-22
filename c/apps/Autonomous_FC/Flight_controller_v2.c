@@ -1,6 +1,8 @@
 #include "Flight_conteroller_v2.h"
 #include "gps/read_gps.h"
 #include "gyro/gyro.h"
+#include "barometer/baro.h"
+#include "compass/compass.h"
 #include "basic_lib/actuator_receiver.h"
 #include "pid/pid.h"
 #include "safety/return_to_home.h"
@@ -59,11 +61,10 @@ int main(int argc, char **argv)
   gyro_setup();                                                 //Initiallize the gyro and set the correct registers.
 
   ////////////////// to be uncommented after composss node is made
-  //  setup_compass();                                              //Initiallize the compass and set the correct registers.
-//  read_compass();                                               //Read and calculate the compass data.
-//  angle_yaw = actual_compass_heading;                           //Set the initial compass heading.
+  setup_compass();                                              //Initiallize the compass and set the correct registers.
+  read_compass();                                               //Read and calculate the compass data.
+  angle_yaw = actual_compass_heading;                           //Set the initial compass heading.
 ////////////////////
-  angle_yaw =0;
   //Create a 5 second delay before calibration.
   for (count_var = 0; count_var < 1250; count_var++) {          //1250 loops of 4 microseconds = 5 seconds.
     if (count_var % 125 == 0) {                                 //Every 125 loops (500ms).
@@ -97,22 +98,9 @@ int main(int argc, char **argv)
     battery_voltage = (float)batteryRead() / 112.81;
   }
 
-  ///////// to be uncommented after barometer node is made
-//  //For calculating the pressure the 6 calibration values need to be polled from the MS5611.
-//  //These 2 byte values are stored in the memory location 0xA2 and up.
-//  for (start = 1; start <= 6; start++) {
-//    C[start] = i2c_read(MS5611_address, 0xA0 + i*2) << 8 | i2c_read(MS5611_address, 0xA0 + i*2 +1);                //Add the low and high byte to the C[x] calibration variable.
-//  }
-//
-//  OFF_C2 = C[2] * pow(2, 16);                                   //This value is pre-calculated to offload the main program loop.
-//  SENS_C1 = C[1] * pow(2, 15);                                  //This value is pre-calculated to offload the main program loop.
-//
-//  //The MS5611 needs a few readings to stabilize.
-//  for (start = 0; start < 100; start++) {                       //This loop runs 100 times.
-//    read_barometer();                                           //Read and calculate the barometer data.
-//    millis(4);                                                   //The main program loop also runs 250Hz (4ms per loop).
-//  }
-//  actual_pressure = 0;                                          //Reset the pressure calculations.
+  //For calculating the pressure the 6 calibration values need to be polled from the MS5611.
+  //These 2 byte values are stored in the memory location 0xA2 and up.
+  barometer_setup();
 ////////////////////////////
   //Before starting the avarage accelerometer value is preloaded into the variables.
   for (start = 0; start <= 24; start++)acc_z_average_short[start] = acc_z;
@@ -155,7 +143,7 @@ int main(int argc, char **argv)
     //Some functions are only accessible when the quadcopter is off.
     if (start == 0) {
       //For compass calibration move both sticks to the top right.
-      // if (channel_1 > 1900 && channel_2 < 1100 && channel_3 > 1900 && channel_4 > 1900)callibrate_compass();
+       if (channel_1 > 1900 && channel_2 < 1100 && channel_3 > 1900 && channel_4 > 1900)callibrate_compass();
       //Level calibration move both sticks to the top left.
       if (channel_1 < 1100 && channel_2 < 1100 && channel_3 > 1900 && channel_4 < 1100)callibrate_level();
       //Change settings
@@ -193,10 +181,8 @@ int main(int argc, char **argv)
     flight_mode_signal();                                                            //Show the flight_mode via the green LED.
     LED_out(1);                                                                  //Show the error via the red LED.
     gyro_signalen();                                                                 //Read the gyro and accelerometer data.
-///////////////// to be uncommented after composss  and barometer node is made
-    //    read_barometer();                                                                //Read and calculate the barometer data.
-//    read_compass();                                                                  //Read and calculate the compass data.
-////////////////
+    read_barometer();                                                                //Read and calculate the barometer data.
+    read_compass();                                                                  //Read and calculate the compass data.
     if (gps_add_counter >= 0)gps_add_counter --;
 
     read_gps();
@@ -225,8 +211,7 @@ int main(int argc, char **argv)
     angle_pitch -= angle_roll * sin(gyro_yaw * (dt/65.5)*(3.142/180));         //If the IMU has yawed transfer the roll angle to the pitch angel.
     angle_roll += angle_pitch * sin(gyro_yaw * (dt/65.5)*(3.142/180));         //If the IMU has yawed transfer the pitch angle to the roll angel.
 
-    // angle_yaw -= course_deviation(angle_yaw, actual_compass_heading) / 1200.0;       //Calculate the difference between the gyro and compass heading and make a small correction.
-    angle_yaw =0;//since there is no compass
+     angle_yaw -= course_deviation(angle_yaw, actual_compass_heading) / 1200.0;       //Calculate the difference between the gyro and compass heading and make a small correction.
     if (angle_yaw < 0) angle_yaw += 360;                                             //If the compass heading becomes smaller then 0, 360 is added to keep it in the 0 till 360 degrees range.
     else if (angle_yaw >= 360) angle_yaw -= 360;                                     //If the compass heading becomes larger then 360, 360 is subtracted to keep it in the 0 till 360 degrees range.
 
@@ -243,7 +228,7 @@ int main(int argc, char **argv)
       angle_roll_acc = asin(acc_x/acc_total_vector)* -57.296;                  //Calculate the roll angle.
     }
 
-        if(first_time)
+    if(first_time)
     {
       pitch_offset = -angle_pitch_acc;                                         //start the pitch angle from 0 without any offsets
       roll_offset = -angle_roll_acc;                                           //start the roll angle from 0 without any offsets
@@ -276,8 +261,7 @@ int main(int argc, char **argv)
     //First the course deviation is calculated between the current heading and the course_lock_heading.
     //Based on this deviation the pitch and roll controls are calculated so the responce is the same as on startup.
     if (heading_lock == 1) {
-      // heading_lock_course_deviation = course_deviation(angle_yaw, course_lock_heading);
-      heading_lock_course_deviation = 0;//since there is no compass
+       heading_lock_course_deviation = course_deviation(angle_yaw, course_lock_heading);
       channel_1_base = 1500 + ((float)(channel_1 - 1500) * cos(heading_lock_course_deviation * 0.017453)) + ((float)(channel_2 - 1500) * cos((heading_lock_course_deviation - 90) * 0.017453));
       channel_2_base = 1500 + ((float)(channel_2 - 1500) * cos(heading_lock_course_deviation * 0.017453)) + ((float)(channel_1 - 1500) * cos((heading_lock_course_deviation + 90) * 0.017453));
       gps_man_adjust_heading = course_lock_heading;

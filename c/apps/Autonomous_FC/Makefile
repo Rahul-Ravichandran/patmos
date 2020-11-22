@@ -9,7 +9,7 @@ LDFLAGS?= \
         -Xgold --defsym -Xgold __heap_end=0x070000
 
 all:
-	patmos-clang -I ../.. -O2 $(LDFLAGS) gps/gps.c $(MAIN).c -o Autonomous_FC.elf -lm
-	patmos-clang -I ../.. -O2 $(LDFLAGS) gps/gps.c $(MAIN).c -o ~/t-crest/patmos/tmp/Autonomous_FC.elf -lm
+	patmos-clang -I ../.. -O2 $(LDFLAGS) gps/gps.c basic_lib/i2c_master.c $(MAIN).c -o Autonomous_FC.elf -lm
+	patmos-clang -I ../.. -O2 $(LDFLAGS) gps/gps.c basic_lib/i2c_master.c $(MAIN).c -o ~/t-crest/patmos/tmp/Autonomous_FC.elf -lm
 # 	patmos-clang -o  de10-IMU.elf $(MAIN).c -lm 
 

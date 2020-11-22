@@ -1,7 +1,7 @@
 #ifndef PATMOS_CALLIB_H
 #define PATMOS_CALLIB_H
 
-#include "../basic_lib/i2c.h"
+#include "../basic_lib/i2c_master.h"
 #include "../basic_lib/timer.h"
 #include "../basic_lib/led.h"
 
@@ -10,43 +10,41 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //In this part the level and compass calibration procedres are handled.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// void calibrate_compass(void) {
-//   compass_calibration_on = 1;                                                //Set the compass_calibration_on variable to disable the adjustment of the raw compass values.
-//   LED_out(1);                                                             //The red led will indicate that the compass calibration is active.
-//   LED_out(0);                                                            //Turn off the green led as we don't need it.
-//   while (channel_2 < 1900) {                                                 //Stay in this loop until the pilot lowers the pitch stick of the transmitter.
+ void callibrate_compass(void) {
+   compass_calibration_on = 1;                                                //Set the compass_calibration_on variable to disable the adjustment of the raw compass values.
+   LED_out(1);                                                             //The red led will indicate that the compass calibration is active.
+   LED_out(0);                                                            //Turn off the green led as we don't need it.
+   while (channel_2 < 1900) {                                                 //Stay in this loop until the pilot lowers the pitch stick of the transmitter.
 //     send_telemetry_data();                                                   //Send telemetry data to the ground station.
-//     micros(3700);                                                 //Simulate a 250Hz program loop.
-//     read_compass();                                                          //Read the raw compass values.
-//     //In the following lines the maximum and minimum compass values are detected and stored.
-//     if (compass_x < compass_cal_values[0])compass_cal_values[0] = compass_x;
-//     if (compass_x > compass_cal_values[1])compass_cal_values[1] = compass_x;
-//     if (compass_y < compass_cal_values[2])compass_cal_values[2] = compass_y;
-//     if (compass_y > compass_cal_values[3])compass_cal_values[3] = compass_y;
-//     if (compass_z < compass_cal_values[4])compass_cal_values[4] = compass_z;
-//     if (compass_z > compass_cal_values[5])compass_cal_values[5] = compass_z;
-//   }
-//   compass_calibration_on = 0;                                                //Reset the compass_calibration_on variable.
+     micros(3700);                                                 //Simulate a 250Hz program loop.
+     read_compass();                                                          //Read the raw compass values.
+     //In the following lines the maximum and minimum compass values are detected and stored.
+     if (compass_x < compass_cal_values[0])compass_cal_values[0] = compass_x;
+     if (compass_x > compass_cal_values[1])compass_cal_values[1] = compass_x;
+     if (compass_y < compass_cal_values[2])compass_cal_values[2] = compass_y;
+     if (compass_y > compass_cal_values[3])compass_cal_values[3] = compass_y;
+     if (compass_z < compass_cal_values[4])compass_cal_values[4] = compass_z;
+     if (compass_z > compass_cal_values[5])compass_cal_values[5] = compass_z;
+   }
+   compass_calibration_on = 0;                                                //Reset the compass_calibration_on variable.
 
-//   //The maximum and minimum values are needed for the next startup and are stored
-//   for (error = 0; error < 6; error ++) EEPROM.write(0x10 + error, compass_cal_values[error]);
 
-//   setup_compass();                                                           //Initiallize the compass and set the correct registers.
-//   read_compass();                                                            //Read and calculate the compass data.
-//   angle_yaw = actual_compass_heading;                                        //Set the initial compass heading.
+   setup_compass();                                                           //Initiallize the compass and set the correct registers.
+   read_compass();                                                            //Read and calculate the compass data.
+   angle_yaw = actual_compass_heading;                                        //Set the initial compass heading.
 
-//   red_led(LOW);
-//   for (error = 0; error < 15; error ++) {
-//     LED_out(1);
-//     millis(50);
-//     LED_out(0);
-//     millis(50);
-//   }
+   LED_out(0);
+   for (error = 0; error < 15; error ++) {
+     LED_out(1);
+     millis(50);
+     LED_out(0);
+     millis(50);
+   }
 
-//   error = 0;
+   error = 0;
 
-//   loop_timer = get_cpu_usecs();                                                     //Set the timer for the next loop.
-// }
+   loop_timer = get_cpu_usecs();                                                     //Set the timer for the next loop.
+ }
 
 
 void callibrate_level(void) {

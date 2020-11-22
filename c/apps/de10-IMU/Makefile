@@ -1,4 +1,4 @@
-MAIN?=baro_test
+MAIN?=compass_test
 #MAIN?=blinking
 
 # This is the trivial Hello World example, distributed over two .c files
