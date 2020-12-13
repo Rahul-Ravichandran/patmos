@@ -17,7 +17,7 @@ entity patmos_top is
     port (
         -- Clock and reset
         clk                  : in    std_logic;
-        --cpu_reset_btn : in std_logic;
+        --cpu_reset_btn      : in    std_logic;
         -- LEDs
         oLedsPins_led        : out   std_logic_vector(7 downto 0);
         --UART
@@ -26,6 +26,9 @@ entity patmos_top is
         --Second UART (UART2)
         oUart2Pins_txd       : out   std_logic;
         iUart2Pins_rxd       : in    std_logic;
+        --3rd UART (UART3)
+        oUart3Pins_txd : out   std_logic;
+        iUart3Pins_rxd : in    std_logic;        
         -- AAU I2C interface
         oMpuScl              : out   std_logic;
         ioMpuSda             : inout std_logic;
@@ -46,43 +49,79 @@ entity patmos_top is
         test_SPIMaster_miso  : out   std_logic;
         test_SPIMaster_mosi  : out   std_logic;
         test_SPIMaster_nSS   : out   std_logic;
-        test_SPIMaster_sclk  : out   std_logic
-    );
+        test_SPIMaster_sclk  : out   std_logic;
+        --DDR3
+        HPS_DDR3_ADDR        : out   std_logic_vector(14 downto 0);
+        HPS_DDR3_BA          : out   std_logic_vector(2 downto 0);
+        HPS_DDR3_CAS_N       : out   std_logic;
+        HPS_DDR3_CKE         : out   std_logic;
+        HPS_DDR3_CK_N        : out   std_logic;
+        HPS_DDR3_CK_P        : out   std_logic;
+        HPS_DDR3_CS_N        : out   std_logic;
+        HPS_DDR3_DM          : out   std_logic_vector(3 downto 0);
+        HPS_DDR3_DQ          : inout std_logic_vector(31 downto 0);
+        HPS_DDR3_DQS_N       : inout std_logic_vector(3 downto 0);
+        HPS_DDR3_DQS_P       : inout std_logic_vector(3 downto 0);
+        HPS_DDR3_ODT         : out   std_logic;
+        HPS_DDR3_RAS_N       : out   std_logic;
+        HPS_DDR3_RESET_N     : out   std_logic;
+        HPS_DDR3_RZQ         : in    std_logic;
+        HPS_DDR3_WE_N        : out   std_logic
+ );
 end entity patmos_top;
 architecture rtl of patmos_top is
     component Patmos is
         port (
-            clock                : in  std_logic;
-            reset                : in  std_logic;
-            io_Leds_led          : out std_logic_vector(7 downto 0);
-            -- io_AauMpu_data_0 : in std_logic_vector(31 downto 0);
-            -- io_AauMpu_data_1 : in std_logic_vector(31 downto 0);
-            -- io_AauMpu_data_2 : in std_logic_vector(31 downto 0);
-            -- io_AauMpu_data_3 : in std_logic_vector(31 downto 0);
-            -- io_AauMpu_data_4 : in std_logic_vector(31 downto 0);
-            -- io_AauMpu_data_5 : in std_logic_vector(31 downto 0);
-            -- io_AauMpu_data_6 : in std_logic_vector(31 downto 0);
-            -- io_AauMpu_data_7 : in std_logic_vector(31 downto 0);
-            -- io_AauMpu_data_8 : in std_logic_vector(31 downto 0);
-            -- io_AauMpu_data_9 : in std_logic_vector(31 downto 0);
-            io_I2CMaster_sdaI    : in  std_logic;
-            io_I2CMaster_sdaO    : out std_logic;
-            io_I2CMaster_sclI    : in  std_logic;
-            io_I2CMaster_sclO    : out std_logic;
-            io_Actuators_MCmd    : out std_logic_vector(2 downto 0);
-            io_Actuators_MAddr   : out std_logic_vector(15 downto 0);
-            io_Actuators_MData   : out std_logic_vector(31 downto 0);
-            io_Actuators_MByteEn : out std_logic_vector(3 downto 0);
-            io_Actuators_SResp   : in  std_logic_vector(1 downto 0);
-            io_Actuators_SData   : in  std_logic_vector(31 downto 0);
-            io_Uart_tx           : out std_logic;
-            io_Uart_rx           : in  std_logic;
-            io_UartCmp_tx        : out std_logic;
-            io_UartCmp_rx        : in  std_logic;
-            io_SPIMaster_miso    : in  std_logic;
-            io_SPIMaster_mosi    : out std_logic;
-            io_SPIMaster_nSS     : out std_logic;
-            io_SPIMaster_sclk    : out std_logic
+            clock                     : in    std_logic;
+            reset                     : in    std_logic;
+            io_Leds_led               : out   std_logic_vector(7 downto 0);
+            -- io_AauMpu_data_0       : in    std_logic_vector(31 downto 0);
+            -- io_AauMpu_data_1       : in    std_logic_vector(31 downto 0);
+            -- io_AauMpu_data_2       : in    std_logic_vector(31 downto 0);
+            -- io_AauMpu_data_3       : in    std_logic_vector(31 downto 0);
+            -- io_AauMpu_data_4       : in    std_logic_vector(31 downto 0);
+            -- io_AauMpu_data_5       : in    std_logic_vector(31 downto 0);
+            -- io_AauMpu_data_6       : in    std_logic_vector(31 downto 0);
+            -- io_AauMpu_data_7       : in    std_logic_vector(31 downto 0);
+            -- io_AauMpu_data_8       : in    std_logic_vector(31 downto 0);
+            -- io_AauMpu_data_9       : in    std_logic_vector(31 downto 0);
+            io_I2CMaster_sdaI         : in    std_logic;
+            io_I2CMaster_sdaO         : out   std_logic;
+            io_I2CMaster_sclI         : in    std_logic;
+            io_I2CMaster_sclO         : out   std_logic;
+            io_Actuators_MCmd         : out   std_logic_vector(2 downto 0);
+            io_Actuators_MAddr        : out   std_logic_vector(15 downto 0);
+            io_Actuators_MData        : out   std_logic_vector(31 downto 0);
+            io_Actuators_MByteEn      : out   std_logic_vector(3 downto 0);
+            io_Actuators_SResp        : in    std_logic_vector(1 downto 0);
+            io_Actuators_SData        : in    std_logic_vector(31 downto 0);
+            io_Uart_tx                : out   std_logic;
+            io_Uart_rx                : in    std_logic;
+            io_Uart_1_tx              : out std_logic;
+            io_Uart_1_rx              : in std_logic;
+            io_UartCmp_tx             : out   std_logic;
+            io_UartCmp_rx             : in    std_logic;
+            io_SPIMaster_miso         : in    std_logic;
+            io_SPIMaster_mosi         : out   std_logic;
+            io_SPIMaster_nSS          : out   std_logic;
+            io_SPIMaster_sclk         : out   std_logic;
+            --DDR3
+            io_DDR3Bridge_mem_a       : out   std_logic_vector(14 downto 0);
+            io_DDR3Bridge_mem_ba      : out   std_logic_vector(2 downto 0);
+            io_DDR3Bridge_mem_ck      : out   std_logic;
+            io_DDR3Bridge_mem_ck_n    : out   std_logic;
+            io_DDR3Bridge_mem_cke     : out   std_logic;
+            io_DDR3Bridge_mem_cs_n    : out   std_logic;
+            io_DDR3Bridge_mem_ras_n   : out   std_logic;
+            io_DDR3Bridge_mem_cas_n   : out   std_logic;
+            io_DDR3Bridge_mem_we_n    : out   std_logic;
+            io_DDR3Bridge_mem_reset_n : out   std_logic;
+            io_DDR3Bridge_mem_dq      : inout std_logic_vector(31 downto 0);
+            io_DDR3Bridge_mem_dqs     : inout std_logic_vector(3 downto 0);
+            io_DDR3Bridge_mem_dqs_n   : inout std_logic_vector(3 downto 0);
+            io_DDR3Bridge_mem_odt     : out   std_logic;
+            io_DDR3Bridge_mem_dm      : out   std_logic_vector(3 downto 0);
+            io_DDR3Bridge_oct_rzqin   : in    std_logic
         );
     end component;
 
@@ -255,12 +294,31 @@ begin
         io_Actuators_SData   => actuatorsPins_SData,
         io_Uart_tx           => oUart2Pins_txd,
         io_Uart_rx           => iUart2Pins_rxd,
+        io_Uart_1_tx         => oUart3Pins_txd,
+        io_Uart_1_rx         => iUart3Pins_rxd,  
         io_UartCmp_tx        => oUartPins_txd,
         io_UartCmp_rx        => iUartPins_rxd,
         io_SPIMaster_miso    => miso,
         io_SPIMaster_mosi    => mosi,
         io_SPIMaster_nSS     => ss,
-        io_SPIMaster_sclk    => sclk
+        io_SPIMaster_sclk    => sclk,
+        --DDR3
+        io_DDR3Bridge_mem_a       => HPS_DDR3_ADDR,
+        io_DDR3Bridge_mem_ba      => HPS_DDR3_BA,
+        io_DDR3Bridge_mem_ck      => HPS_DDR3_CK_P,
+        io_DDR3Bridge_mem_ck_n    => HPS_DDR3_CK_N,
+        io_DDR3Bridge_mem_cke     => HPS_DDR3_CKE,
+        io_DDR3Bridge_mem_cs_n    => HPS_DDR3_CS_N,
+        io_DDR3Bridge_mem_ras_n   => HPS_DDR3_RAS_N,
+        io_DDR3Bridge_mem_cas_n   => HPS_DDR3_CAS_N,
+        io_DDR3Bridge_mem_we_n    => HPS_DDR3_WE_N,
+        io_DDR3Bridge_mem_reset_n => HPS_DDR3_RESET_N,
+        io_DDR3Bridge_mem_dq      => HPS_DDR3_DQ,
+        io_DDR3Bridge_mem_dqs     => HPS_DDR3_DQS_P,
+        io_DDR3Bridge_mem_dqs_n   => HPS_DDR3_DQS_N,
+        io_DDR3Bridge_mem_odt     => HPS_DDR3_ODT,
+        io_DDR3Bridge_mem_dm      => HPS_DDR3_DM,
+        io_DDR3Bridge_oct_rzqin   => HPS_DDR3_RZQ
     );
 
     Actuators_PropDrive_inst_0 : Actuators_PropDrive
@@ -286,6 +344,7 @@ begin
         pwm_measurment_input => pwm_measurment_input,
         propdrive_out_port   => propdrive_out_port
     );
+
     test_SPIMaster_miso <= miso;
     test_SPIMaster_mosi <= mosi;
     test_SPIMaster_nSS  <= ss;
