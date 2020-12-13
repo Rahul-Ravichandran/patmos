@@ -36,7 +36,7 @@ GND 12 * * 11
        * *
 txd  6 * *  5 rxd UART2
      4 * *  3
-txd  2 * *  1 rxd UART
+txd  2 * *  1 rxd UART1
 ```
 
 rxd and txd are from the Patmos view, therefore TTL UART rxd needs to
